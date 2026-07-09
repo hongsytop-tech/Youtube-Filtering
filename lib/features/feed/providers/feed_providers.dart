@@ -5,6 +5,7 @@ import '../../categories/models/filter_category.dart';
 import '../../categories/providers/categories_providers.dart';
 import '../models/feed_video.dart';
 import '../services/feed_service.dart';
+import 'feed_prefs.dart';
 
 final feedServiceProvider = Provider<FeedService>(
   (ref) => FeedService(ref.watch(localStorageProvider)),
@@ -20,15 +21,23 @@ final filteredFeedProvider = Provider.autoDispose<AsyncValue<List<FeedVideo>>>(
   (ref) {
     final feed = ref.watch(feedProvider);
     final enabled = ref.watch(categoriesProvider).enabled;
-    return feed.whenData((videos) => _applyFilter(videos, enabled));
+    final includeShorts = ref.watch(includeShortsProvider);
+    return feed.whenData(
+      (videos) => _applyFilter(videos, enabled, includeShorts),
+    );
   },
 );
 
 List<FeedVideo> _applyFilter(
   List<FeedVideo> videos,
   List<FilterCategory> enabled,
+  bool includeShorts,
 ) {
-  if (enabled.isEmpty) return videos;
+  var pool = videos;
+  if (!includeShorts) {
+    pool = pool.where((v) => !v.isShort).toList();
+  }
+  if (enabled.isEmpty) return pool;
 
   final catIds = <String>{};
   final keywords = <String>[];
@@ -37,7 +46,7 @@ List<FeedVideo> _applyFilter(
     keywords.addAll(c.keywords.map((k) => k.toLowerCase()));
   }
 
-  return videos.where((v) {
+  return pool.where((v) {
     if (catIds.contains(v.categoryId)) return true;
     if (keywords.isEmpty) return false;
     final title = v.title.toLowerCase();

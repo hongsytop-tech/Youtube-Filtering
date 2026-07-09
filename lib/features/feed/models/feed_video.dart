@@ -10,6 +10,7 @@ class FeedVideo {
     required this.publishedAt,
     required this.categoryId,
     this.durationSeconds,
+    this.isShort = false,
   });
 
   final String videoId;
@@ -20,6 +21,7 @@ class FeedVideo {
   final DateTime publishedAt;
   final String categoryId;
   final int? durationSeconds;
+  final bool isShort;
 
   String get watchUrl => 'https://www.youtube.com/watch?v=$videoId';
 
@@ -36,6 +38,7 @@ class FeedVideo {
         categoryId: '${j['categoryId'] ?? j['category_id'] ?? ''}',
         durationSeconds:
             (j['durationSeconds'] ?? j['duration_seconds']) as int?,
+        isShort: (j['isShort'] ?? j['is_short'] ?? false) as bool,
       );
 
   Map<String, dynamic> toJson() => {
@@ -47,5 +50,6 @@ class FeedVideo {
         'publishedAt': publishedAt.toUtc().toIso8601String(),
         'categoryId': categoryId,
         'durationSeconds': durationSeconds,
+        'isShort': isShort,
       };
 }

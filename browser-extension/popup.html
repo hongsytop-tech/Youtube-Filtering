@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      body {
+        width: 300px;
+        margin: 0;
+        font-family: system-ui, sans-serif;
+        background: #fff;
+        color: #111;
+      }
+      header {
+        background: #e01e1e;
+        color: #fff;
+        padding: 12px 14px;
+        font-weight: 600;
+      }
+      main { padding: 14px; }
+      label { display: block; font-size: 12px; margin: 10px 0 4px; }
+      input {
+        width: 100%;
+        box-sizing: border-box;
+        padding: 8px;
+        border: 1px solid #ccc;
+        border-radius: 6px;
+        font-size: 14px;
+      }
+      button {
+        width: 100%;
+        margin-top: 12px;
+        padding: 10px;
+        border: 0;
+        border-radius: 6px;
+        background: #e01e1e;
+        color: #fff;
+        font-size: 15px;
+        font-weight: 600;
+      }
+      button.secondary { background: #eee; color: #333; }
+      button:disabled { opacity: 0.6; }
+      #status { margin-top: 12px; font-size: 13px; white-space: pre-line; }
+      .row { display: flex; gap: 8px; align-items: center; }
+      .row input { width: 64px; }
+      .muted { color: #666; font-size: 12px; }
+    </style>
+  </head>
+  <body>
+    <header>피드필터 수집기</header>
+    <main>
+      <div id="login" hidden>
+        <label>이메일</label>
+        <input id="email" type="email" autocomplete="username" />
+        <label>비밀번호</label>
+        <input id="password" type="password" autocomplete="current-password" />
+        <button id="loginBtn">로그인</button>
+        <p class="muted">앱과 같은 계정으로 로그인하세요.</p>
+      </div>
+
+      <div id="collect" hidden>
+        <div class="muted" id="who"></div>
+        <label>자동 스크롤 횟수</label>
+        <div class="row">
+          <input id="scrolls" type="number" min="0" max="30" value="5" />
+          <span class="muted">많을수록 더 많은 영상 (권장 5~10)</span>
+        </div>
+        <button id="collectBtn">이 화면의 홈 피드 수집</button>
+        <button id="logoutBtn" class="secondary">로그아웃</button>
+      </div>
+
+      <div id="status"></div>
+    </main>
+
+    <script src="config.js"></script>
+    <script src="popup.js"></script>
+  </body>
+</html>

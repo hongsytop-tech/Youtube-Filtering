@@ -4,8 +4,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/config/env.dart';
 import '../../../core/supabase/supabase_service.dart';
 import '../../auth/providers/auth_providers.dart';
+import '../../feed/providers/feed_prefs.dart';
 import '../../update/update_section.dart';
 import '../../youtube/providers/youtube_providers.dart';
+import '../../youtube/widgets/collect_guide.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -28,6 +30,16 @@ class SettingsScreen extends ConsumerWidget {
           ),
           const Divider(),
           _YoutubeConnectTile(state: yt),
+          const Divider(),
+          const CollectGuide(),
+          const Divider(),
+          SwitchListTile(
+            secondary: const Icon(Icons.movie_outlined),
+            title: const Text('쇼츠 포함'),
+            subtitle: const Text('피드에 쇼츠(60초 이하)를 포함할지 여부'),
+            value: ref.watch(includeShortsProvider),
+            onChanged: (v) => ref.read(includeShortsProvider.notifier).set(v),
+          ),
           const Divider(),
           if (SupabaseService.isSignedIn)
             ListTile(

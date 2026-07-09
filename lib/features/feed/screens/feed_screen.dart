@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/supabase/supabase_service.dart';
+import '../providers/feed_prefs.dart';
 import '../providers/feed_providers.dart';
 import '../widgets/video_card.dart';
 
@@ -11,11 +12,23 @@ class FeedScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final filtered = ref.watch(filteredFeedProvider);
+    final includeShorts = ref.watch(includeShortsProvider);
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('피드'),
         actions: [
+          IconButton(
+            tooltip: includeShorts ? '쇼츠 포함 중' : '쇼츠 제외 중',
+            onPressed: () =>
+                ref.read(includeShortsProvider.notifier).set(!includeShorts),
+            icon: Icon(
+              includeShorts ? Icons.movie : Icons.movie_outlined,
+              color: includeShorts
+                  ? Theme.of(context).colorScheme.primary
+                  : null,
+            ),
+          ),
           IconButton(
             tooltip: '새로고침',
             onPressed: () => ref.invalidate(feedProvider),

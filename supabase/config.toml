@@ -8,3 +8,7 @@ verify_jwt = true
 # manually inside the function, so disable the automatic JWT gate.
 [functions.fetch-feed]
 verify_jwt = false
+
+# Called by the browser extension; user resolved manually from the token.
+[functions.ingest-feed]
+verify_jwt = false
