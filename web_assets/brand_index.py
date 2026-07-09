@@ -25,5 +25,10 @@ if "icon.svg" not in html:
     else:
         html = html.replace("</head>", inject + "</head>")
 
+# Google Identity Services (GIS) for the YouTube OAuth code flow.
+gis = '<script src="https://accounts.google.com/gsi/client" async defer></script>\n'
+if "gsi/client" not in html:
+    html = html.replace("</head>", "  " + gis + "</head>")
+
 open(PATH, "w", encoding="utf-8").write(html)
 print("branding injected into", PATH)
