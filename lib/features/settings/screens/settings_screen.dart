@@ -23,7 +23,7 @@ class SettingsScreen extends ConsumerWidget {
       final d = (res.data as Map?) ?? const {};
       messenger.showSnackBar(SnackBar(
         content: Text(
-          '완료: ${d['checked'] ?? 0}개 중 쇼츠 ${d['reclassifiedAsShort'] ?? 0}개 재분류. '
+          '완료: 길이보정 ${d['backfilled'] ?? 0}개, 쇼츠 표시 ${d['shortsMarked'] ?? 0}개. '
           '피드를 새로고침하세요.',
         ),
       ));
@@ -63,8 +63,8 @@ class SettingsScreen extends ConsumerWidget {
           if (SupabaseService.isSignedIn)
             ListTile(
               leading: const Icon(Icons.autorenew),
-              title: const Text('기존 영상 쇼츠 재분류'),
-              subtitle: const Text('저장된 영상을 /shorts/ 기준으로 다시 판별'),
+              title: const Text('기존 영상 길이보정·쇼츠 재분류'),
+              subtitle: const Text('길이 없는 영상 보정 + 쇼츠 다시 판별'),
               onTap: () => _reclassifyShorts(context),
             ),
           const Divider(),

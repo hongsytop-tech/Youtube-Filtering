@@ -117,25 +117,94 @@ Deno.serve(async (req) => {
     return json({ error: "bad json" }, 400);
   }
 
-  // Reclassify mode: re-check existing 61–180s "normal" rows via the /shorts/
-  // URL and flip the real Shorts. No YouTube token needed.
+  // Reclassify mode: (1) backfill missing durations via the YouTube API so the
+  // <=60s rule catches Shorts, then (2) confirm 61–180s rows via /shorts/.
   if (body.reclassify) {
-    const res = await db(
-      `feed_videos?user_id=eq.${userId}&is_short=eq.false` +
-        `&duration_seconds=gt.${SHORTS_MAX_SECONDS}` +
-        `&duration_seconds=lte.${SHORTS_PROBE_MAX}&select=video_id`,
+    const tokRes = await db(
+      `google_tokens?user_id=eq.${userId}&select=refresh_token`,
       { method: "GET" },
     );
-    const cands: string[] = (await res.json()).map((r: any) => r.video_id);
-    const probed = await probeShorts(cands);
-    if (probed.size > 0) {
-      const list = [...probed].map((id) => `"${id}"`).join(",");
-      await db(`feed_videos?user_id=eq.${userId}&video_id=in.(${list})`, {
-        method: "PATCH",
-        body: JSON.stringify({ is_short: true }),
-      });
+    const refresh = (await tokRes.json())?.[0]?.refresh_token;
+    if (!refresh) {
+      return json({ error: "not_connected", detail: "먼저 YouTube를 연결하세요." }, 400);
     }
-    return json({ checked: cands.length, reclassifiedAsShort: probed.size });
+    const token = await accessToken(refresh);
+    if (!token) return json({ error: "token_refresh_failed" }, 400);
+
+    try {
+      // 1) rows missing duration → fetch it
+      const nullRes = await db(
+        `feed_videos?user_id=eq.${userId}&duration_seconds=is.null&select=video_id`,
+        { method: "GET" },
+      );
+      const nullIds: string[] = (await nullRes.json()).map((r: any) => r.video_id);
+      const durById = new Map<string, number>();
+      for (const group of chunk(nullIds, 50)) {
+        const qs = new URLSearchParams({
+          part: "contentDetails",
+          id: group.join(","),
+          maxResults: "50",
+        });
+        const res = await fetch(`${YT}/videos?${qs}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!res.ok) throw new Error(await res.text());
+        for (const v of (await res.json()).items ?? []) {
+          durById.set(v.id, durationSeconds(v.contentDetails?.duration ?? "PT0S"));
+        }
+      }
+
+      // 2) existing 61–180s non-short rows
+      const midRes = await db(
+        `feed_videos?user_id=eq.${userId}&is_short=eq.false` +
+          `&duration_seconds=gt.${SHORTS_MAX_SECONDS}` +
+          `&duration_seconds=lte.${SHORTS_PROBE_MAX}&select=video_id`,
+        { method: "GET" },
+      );
+      const midIds: string[] = (await midRes.json()).map((r: any) => r.video_id);
+
+      // probe 61–180s (backfilled + existing) via /shorts/
+      const probeCands = [
+        ...[...durById.entries()]
+            .filter(([, s]) => s > SHORTS_MAX_SECONDS && s <= SHORTS_PROBE_MAX)
+            .map(([id]) => id),
+        ...midIds,
+      ];
+      const probed = await probeShorts(probeCands);
+
+      // 3) build column-limited upserts (updates only provided columns)
+      const updates: unknown[] = [];
+      for (const [id, secs] of durById) {
+        updates.push({
+          user_id: userId,
+          video_id: id,
+          duration_seconds: secs,
+          is_short: (secs > 0 && secs <= SHORTS_MAX_SECONDS) || probed.has(id),
+        });
+      }
+      for (const id of midIds) {
+        if (probed.has(id)) {
+          updates.push({ user_id: userId, video_id: id, is_short: true });
+        }
+      }
+      if (updates.length > 0) {
+        const up = await db("feed_videos?on_conflict=user_id,video_id", {
+          method: "POST",
+          headers: { Prefer: "resolution=merge-duplicates" },
+          body: JSON.stringify(updates),
+        });
+        if (!up.ok) return json({ error: "update_failed", detail: await up.text() }, 500);
+      }
+      const shortsMarked = updates.filter((u: any) => u.is_short).length;
+      return json({
+        backfilled: durById.size,
+        probed: probeCands.length,
+        updated: updates.length,
+        shortsMarked,
+      });
+    } catch (e) {
+      return json({ error: "reclassify_failed", detail: String(e) }, 500);
+    }
   }
 
   // Accept {videos:[{id, short}]} (preferred) or legacy {videoIds:[...]}.
