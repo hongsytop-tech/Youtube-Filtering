@@ -4,7 +4,20 @@
 // Auth (verify_jwt = false):
 //   - cron: header `x-scheduler-secret: <SCHEDULER_SECRET>` → all users
 //   - client: valid Supabase `Authorization` bearer → just that user
-import { corsHeaders, json } from "../_shared/cors.ts";
+// Self-contained (no local imports) so it deploys via the dashboard editor.
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type, x-scheduler-secret",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+
+function json(body: unknown, status = 200): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
