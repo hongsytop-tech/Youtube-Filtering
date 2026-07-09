@@ -6,6 +6,8 @@ import '../../feed/providers/feed_providers.dart';
 
 const _firefoxPlayUrl =
     'https://play.google.com/store/apps/details?id=org.mozilla.firefox';
+const _extensionZipUrl =
+    'https://github.com/hongsytop-tech/Youtube-Filtering/releases/download/extension-latest/feedfilter-extension.zip';
 
 /// In-app guide for setting up on-demand home-feed collection via the
 /// Firefox extension. We cannot auto-install apps from a PWA, so this walks
@@ -48,20 +50,37 @@ class CollectGuide extends ConsumerWidget {
             label: const Text('Play 스토어에서 Firefox 설치'),
           ),
         ),
-        const _Step(
+        _Step(
           n: 2,
-          title: '수집 확장 설치',
-          child: Text(
-            'AMO(비공개 서명) 또는 Firefox Nightly로 확장을 설치합니다. '
-            '자세한 순서는 저장소의 browser-extension/README.md 참고.',
+          title: '확장 zip 내려받기',
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('GitHub이 자동 빌드한 zip을 폰에서 바로 받습니다.'),
+              const SizedBox(height: 6),
+              OutlinedButton.icon(
+                onPressed: () => _open(_extensionZipUrl),
+                icon: const Icon(Icons.archive_outlined),
+                label: const Text('확장 zip 다운로드'),
+              ),
+            ],
           ),
         ),
         const _Step(
           n: 3,
+          title: '브라우저에 확장 로드',
+          child: Text(
+            'Firefox(또는 Kiwi 등)에 이 zip을 확장으로 로드합니다. '
+            '자세한 순서는 저장소의 browser-extension/README.md 참고.',
+          ),
+        ),
+        const _Step(
+          n: 4,
           title: '수집하기',
           child: Text(
-            'Firefox에서 youtube.com 홈을 열고 → 확장 아이콘 탭 → '
-            '앱 계정으로 로그인 → "홈 피드 수집". 그다음 피드 탭 새로고침.',
+            '브라우저에서 youtube.com 홈을 열고 → 확장 아이콘 탭 → '
+            'Supabase 설정 입력 + 앱 계정 로그인 → "홈 피드 수집". '
+            '그다음 피드 탭 새로고침.',
           ),
         ),
         const SizedBox(height: 4),

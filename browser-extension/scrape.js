@@ -32,5 +32,6 @@
   });
 
   const videos = [...map.entries()].map(([id, short]) => ({ id, short }));
-  browser.runtime.sendMessage({ type: "ff_collected", videos });
+  const rt = (typeof browser !== "undefined" ? browser : chrome).runtime;
+  rt.sendMessage({ type: "ff_collected", videos });
 })();

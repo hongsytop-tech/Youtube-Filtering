@@ -44,17 +44,29 @@
       .row { display: flex; gap: 8px; align-items: center; }
       .row input { width: 64px; }
       .muted { color: #666; font-size: 12px; }
+      .link { color: #e01e1e; font-size: 12px; background: none; width: auto;
+        margin: 6px 0 0; padding: 0; font-weight: 400; }
     </style>
   </head>
   <body>
     <header>피드필터 수집기</header>
     <main>
+      <div id="settings" hidden>
+        <label>Supabase URL</label>
+        <input id="url" type="url" placeholder="https://xxxx.supabase.co" />
+        <label>Supabase anon key</label>
+        <input id="key" type="text" placeholder="eyJhbGci..." />
+        <button id="saveBtn">저장</button>
+        <p class="muted">앱과 같은 Supabase의 Settings → API 값입니다.</p>
+      </div>
+
       <div id="login" hidden>
         <label>이메일</label>
         <input id="email" type="email" autocomplete="username" />
         <label>비밀번호</label>
         <input id="password" type="password" autocomplete="current-password" />
         <button id="loginBtn">로그인</button>
+        <button id="editCfgBtn" class="link">Supabase 설정 변경</button>
         <p class="muted">앱과 같은 계정으로 로그인하세요.</p>
       </div>
 

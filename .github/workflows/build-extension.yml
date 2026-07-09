@@ -1,0 +1,38 @@
+name: Build extension zip
+
+on:
+  push:
+    branches:
+      - main
+      - "claude/**"
+    paths:
+      - "browser-extension/**"
+      - ".github/workflows/build-extension.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Zip extension (manifest at zip root)
+        run: |
+          cd browser-extension
+          zip -r ../feedfilter-extension.zip . -x "README.md"
+          cd ..
+          unzip -l feedfilter-extension.zip
+
+      - name: Publish/refresh the download
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view extension-latest >/dev/null 2>&1 || \
+            gh release create extension-latest \
+              --title "피드필터 확장 (latest)" \
+              --notes "브라우저에 로드할 확장 zip. manifest.json이 zip 최상위에 있습니다. Firefox/Kiwi 등 확장 지원 브라우저에서 로드하세요." \
+              --target "${GITHUB_SHA}"
+          gh release upload extension-latest feedfilter-extension.zip --clobber
