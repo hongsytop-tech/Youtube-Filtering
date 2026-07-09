@@ -36,6 +36,22 @@ jobs:
       - name: flutter create
         run: flutter create --platforms web --project-name youtube_filtering .
 
+      # Overwrite default Flutter branding with the YouTube-filter icons.
+      - name: Inject app branding (icons, manifest, title)
+        run: |
+          cp web_assets/manifest.json web/manifest.json
+          cp web_assets/favicon.png web/favicon.png
+          cp web_assets/icon.svg web/icon.svg
+          cp web_assets/apple-touch-icon.png web/apple-touch-icon.png
+          mkdir -p web/icons
+          cp web_assets/icons/*.png web/icons/
+          # <title> + theme-color + svg favicon + apple touch icon
+          sed -i 's#<title>[^<]*</title>#<title>피드필터 – YouTube 카테고리</title>#' web/index.html
+          sed -i 's#<meta name="apple-mobile-web-app-title" content="[^"]*">#<meta name="apple-mobile-web-app-title" content="피드필터">#' web/index.html
+          sed -i 's#<meta name="description" content="[^"]*">#<meta name="description" content="구독 피드를 카테고리로 걸러 보는 YouTube 필터">#' web/index.html
+          # add svg favicon + apple-touch-icon + theme-color right after the png favicon link
+          sed -i 's#<link rel="icon" type="image/png" href="favicon.png"/>#<link rel="icon" type="image/png" href="favicon.png"/>\n  <link rel="icon" type="image/svg+xml" href="icon.svg"/>\n  <link rel="apple-touch-icon" href="apple-touch-icon.png"/>\n  <meta name="theme-color" content="#E01E1E"/>#' web/index.html
+
       - name: Write .env from secrets
         run: |
           cat > .env <<EOF
