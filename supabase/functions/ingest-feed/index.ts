@@ -22,7 +22,9 @@ const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const GOOGLE_CLIENT_ID = Deno.env.get("YT_GOOGLE_CLIENT_ID")!;
 const GOOGLE_CLIENT_SECRET = Deno.env.get("YT_GOOGLE_CLIENT_SECRET")!;
 const YT = "https://www.googleapis.com/youtube/v3";
-const SHORTS_MAX_SECONDS = 60;
+const SHORTS_MAX_SECONDS = 60; // <=60s is always treated as a Short
+const SHORTS_PROBE_MAX = 180; // 61–180s: confirm via the /shorts/ URL
+const PROBE_CONCURRENCY = 8;
 
 function db(path: string, init: RequestInit): Promise<Response> {
   return fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
@@ -71,6 +73,34 @@ function durationSeconds(iso: string): number {
   return (+(m[1] ?? 0)) * 3600 + (+(m[2] ?? 0)) * 60 + (+(m[3] ?? 0));
 }
 
+// A video is a Short iff youtube.com/shorts/<id> resolves (200) instead of
+// redirecting to /watch. The most reliable Shorts signal (Shorts can be up
+// to 3 minutes, so duration alone is not enough).
+async function isShortByUrl(id: string): Promise<boolean> {
+  try {
+    const res = await fetch(`https://www.youtube.com/shorts/${id}`, {
+      method: "HEAD",
+      redirect: "manual",
+    });
+    // 200 => Short; 3xx (redirect to watch) => regular video
+    return res.status === 200;
+  } catch {
+    return false;
+  }
+}
+
+async function probeShorts(ids: string[]): Promise<Set<string>> {
+  const out = new Set<string>();
+  for (let i = 0; i < ids.length; i += PROBE_CONCURRENCY) {
+    const batch = ids.slice(i, i + PROBE_CONCURRENCY);
+    const results = await Promise.all(batch.map((id) => isShortByUrl(id)));
+    batch.forEach((id, j) => {
+      if (results[j]) out.add(id);
+    });
+  }
+  return out;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -80,20 +110,43 @@ Deno.serve(async (req) => {
   const userId = await resolveUserId(req.headers.get("Authorization") ?? "");
   if (!userId) return json({ error: "unauthorized" }, 401);
 
-  // Accept {videos:[{id, short}]} (preferred) or legacy {videoIds:[...]}.
-  const shortById = new Map<string, boolean>();
+  let body: Record<string, any>;
   try {
-    const body = await req.json();
-    if (Array.isArray(body.videos)) {
-      for (const v of body.videos) {
-        if (v?.id) shortById.set(String(v.id), !!v.short);
-      }
-    }
-    for (const id of body.videoIds ?? []) {
-      if (id && !shortById.has(String(id))) shortById.set(String(id), false);
-    }
+    body = await req.json();
   } catch {
     return json({ error: "bad json" }, 400);
+  }
+
+  // Reclassify mode: re-check existing 61–180s "normal" rows via the /shorts/
+  // URL and flip the real Shorts. No YouTube token needed.
+  if (body.reclassify) {
+    const res = await db(
+      `feed_videos?user_id=eq.${userId}&is_short=eq.false` +
+        `&duration_seconds=gt.${SHORTS_MAX_SECONDS}` +
+        `&duration_seconds=lte.${SHORTS_PROBE_MAX}&select=video_id`,
+      { method: "GET" },
+    );
+    const cands: string[] = (await res.json()).map((r: any) => r.video_id);
+    const probed = await probeShorts(cands);
+    if (probed.size > 0) {
+      const list = [...probed].map((id) => `"${id}"`).join(",");
+      await db(`feed_videos?user_id=eq.${userId}&video_id=in.(${list})`, {
+        method: "PATCH",
+        body: JSON.stringify({ is_short: true }),
+      });
+    }
+    return json({ checked: cands.length, reclassifiedAsShort: probed.size });
+  }
+
+  // Accept {videos:[{id, short}]} (preferred) or legacy {videoIds:[...]}.
+  const shortById = new Map<string, boolean>();
+  if (Array.isArray(body.videos)) {
+    for (const v of body.videos) {
+      if (v?.id) shortById.set(String(v.id), !!v.short);
+    }
+  }
+  for (const id of body.videoIds ?? []) {
+    if (id && !shortById.has(String(id))) shortById.set(String(id), false);
   }
   const ids = [...shortById.keys()];
   if (ids.length === 0) return json({ received: 0, inserted: 0 });
@@ -114,8 +167,11 @@ Deno.serve(async (req) => {
   const token = await accessToken(refresh);
   if (!token) return json({ error: "token_refresh_failed" }, 400);
 
-  const rows: unknown[] = [];
-  let shorts = 0;
+  // Phase 1: enrich metadata via the YouTube API.
+  const metas: {
+    v: Record<string, any>;
+    secs: number;
+  }[] = [];
   try {
     for (const group of chunk(ids, 50)) {
       const qs = new URLSearchParams({
@@ -129,31 +185,51 @@ Deno.serve(async (req) => {
       if (!res.ok) throw new Error(await res.text());
       const data = await res.json();
       for (const v of data.items ?? []) {
-        const secs = durationSeconds(v.contentDetails?.duration ?? "PT0S");
-        const isShort =
-          (shortById.get(v.id) ?? false) ||
-          (secs > 0 && secs <= SHORTS_MAX_SECONDS);
-        if (isShort) shorts++;
-        const s = v.snippet ?? {};
-        const th = s.thumbnails ?? {};
-        rows.push({
-          user_id: userId,
-          video_id: v.id,
-          title: s.title ?? "",
-          channel_id: s.channelId ?? "",
-          channel_title: s.channelTitle ?? "",
-          thumbnail_url:
-            th.medium?.url ?? th.high?.url ?? th.default?.url ?? "",
-          category_id: s.categoryId ?? "",
-          published_at: s.publishedAt ?? null,
-          duration_seconds: secs,
-          is_short: isShort,
-          fetched_at: new Date().toISOString(),
+        metas.push({
+          v,
+          secs: durationSeconds(v.contentDetails?.duration ?? "PT0S"),
         });
       }
     }
   } catch (e) {
     return json({ error: "enrich_failed", detail: String(e) }, 500);
+  }
+
+  // Phase 2: for 61–180s videos not already known to be Shorts, confirm via
+  // the /shorts/ URL (Shorts can be up to 3 minutes).
+  const probeIds = metas
+    .filter((m) =>
+      !(shortById.get(m.v.id) ?? false) &&
+      m.secs > SHORTS_MAX_SECONDS &&
+      m.secs <= SHORTS_PROBE_MAX
+    )
+    .map((m) => m.v.id);
+  const probedShorts = await probeShorts(probeIds);
+
+  // Phase 3: build rows.
+  const rows: unknown[] = [];
+  let shorts = 0;
+  for (const { v, secs } of metas) {
+    const isShort =
+      (shortById.get(v.id) ?? false) ||
+      (secs > 0 && secs <= SHORTS_MAX_SECONDS) ||
+      probedShorts.has(v.id);
+    if (isShort) shorts++;
+    const s = v.snippet ?? {};
+    const th = s.thumbnails ?? {};
+    rows.push({
+      user_id: userId,
+      video_id: v.id,
+      title: s.title ?? "",
+      channel_id: s.channelId ?? "",
+      channel_title: s.channelTitle ?? "",
+      thumbnail_url: th.medium?.url ?? th.high?.url ?? th.default?.url ?? "",
+      category_id: s.categoryId ?? "",
+      published_at: s.publishedAt ?? null,
+      duration_seconds: secs,
+      is_short: isShort,
+      fetched_at: new Date().toISOString(),
+    });
   }
 
   if (rows.length > 0) {
