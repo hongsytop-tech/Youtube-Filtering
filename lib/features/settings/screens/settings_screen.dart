@@ -12,6 +12,26 @@ import '../../youtube/widgets/collect_guide.dart';
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
 
+  Future<void> _reclassifyShorts(BuildContext context) async {
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.showSnackBar(const SnackBar(content: Text('재분류 중…')));
+    try {
+      final res = await SupabaseService.client.functions.invoke(
+        'ingest-feed',
+        body: {'reclassify': true},
+      );
+      final d = (res.data as Map?) ?? const {};
+      messenger.showSnackBar(SnackBar(
+        content: Text(
+          '완료: ${d['checked'] ?? 0}개 중 쇼츠 ${d['reclassifiedAsShort'] ?? 0}개 재분류. '
+          '피드를 새로고침하세요.',
+        ),
+      ));
+    } catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text('실패: $e')));
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(currentUserProvider);
@@ -36,10 +56,17 @@ class SettingsScreen extends ConsumerWidget {
           SwitchListTile(
             secondary: const Icon(Icons.movie_outlined),
             title: const Text('쇼츠 포함'),
-            subtitle: const Text('피드에 쇼츠(60초 이하)를 포함할지 여부'),
+            subtitle: const Text('피드에 쇼츠를 포함할지 여부'),
             value: ref.watch(includeShortsProvider),
             onChanged: (v) => ref.read(includeShortsProvider.notifier).set(v),
           ),
+          if (SupabaseService.isSignedIn)
+            ListTile(
+              leading: const Icon(Icons.autorenew),
+              title: const Text('기존 영상 쇼츠 재분류'),
+              subtitle: const Text('저장된 영상을 /shorts/ 기준으로 다시 판별'),
+              onTap: () => _reclassifyShorts(context),
+            ),
           const Divider(),
           if (SupabaseService.isSignedIn)
             ListTile(
