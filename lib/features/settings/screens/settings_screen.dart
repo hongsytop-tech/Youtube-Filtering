@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/config/env.dart';
 import '../../../core/supabase/supabase_service.dart';
 import '../../auth/providers/auth_providers.dart';
+import '../../update/update_section.dart';
 import '../../youtube/providers/youtube_providers.dart';
 
 class SettingsScreen extends ConsumerWidget {
@@ -34,13 +35,8 @@ class SettingsScreen extends ConsumerWidget {
               title: const Text('로그아웃'),
               onTap: () => ref.read(authControllerProvider.notifier).signOut(),
             ),
-          const SizedBox(height: 24),
-          Center(
-            child: Text(
-              'build ${Env.buildId}',
-              style: Theme.of(context).textTheme.labelSmall,
-            ),
-          ),
+          const Divider(),
+          const UpdateSection(),
         ],
       ),
     );

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../core/router/app_router.dart';
+import '../features/update/auto_updater.dart';
 import '../features/update/update_banner.dart';
 
 class AppShell extends StatelessWidget {
@@ -31,6 +32,7 @@ class AppShell extends StatelessWidget {
     return Scaffold(
       body: Column(
         children: [
+          const AutoUpdater(),
           const UpdateBanner(),
           Expanded(child: child),
         ],
