@@ -1,0 +1,82 @@
+name: Deploy Web (GitHub Pages)
+
+on:
+  push:
+    branches:
+      - main
+      - "claude/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+env:
+  REPO_NAME: youtube-filtering
+  FLUTTER_VERSION: 3.22.3
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+
+      # Regenerate platform folders (web/) that are gitignored.
+      - name: flutter create
+        run: flutter create --platforms web .
+
+      - name: Write .env from secrets
+        run: |
+          cat > .env <<EOF
+          SUPABASE_URL=${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}
+          GOOGLE_WEB_CLIENT_ID=${{ secrets.GOOGLE_WEB_CLIENT_ID }}
+          EOF
+
+      - name: pub get
+        run: flutter pub get
+
+      - name: Build web
+        run: |
+          flutter build web --release \
+            --pwa-strategy none \
+            --web-renderer canvaskit \
+            --base-href "/${REPO_NAME}/" \
+            --dart-define=BUILD_ID=${GITHUB_SHA}
+
+      - name: version-info.json + cache busting
+        run: |
+          SHORT_SHA="${GITHUB_SHA::10}"
+          printf '{"build":"%s","time":"%s"}\n' \
+            "$GITHUB_SHA" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            > build/web/version-info.json
+          # bust the 10-minute Pages cache on the entrypoint scripts
+          sed -i "s/flutter_bootstrap.js/flutter_bootstrap.js?v=${SHORT_SHA}/g" build/web/index.html || true
+          sed -i "s/main.dart.js/main.dart.js?v=${SHORT_SHA}/g" build/web/flutter_bootstrap.js || true
+
+      - name: SPA 404 fallback
+        run: cp build/web/index.html build/web/404.html
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: build/web
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

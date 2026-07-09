@@ -1,0 +1,10 @@
+project_id = "youtube-filtering"
+
+# Requires a signed-in Supabase user (exchanges OAuth code for tokens).
+[functions.connect-youtube]
+verify_jwt = true
+
+# Called by cron (scheduler secret) or a signed-in client; auth is checked
+# manually inside the function, so disable the automatic JWT gate.
+[functions.fetch-feed]
+verify_jwt = false

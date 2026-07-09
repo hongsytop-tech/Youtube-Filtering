@@ -1,0 +1,41 @@
+name: youtube_filtering
+description: "구독 피드를 카테고리별로 걸러 보는 YouTube 필터 PWA."
+publish_to: "none"
+version: 0.1.0+1
+
+environment:
+  sdk: ">=3.4.0 <4.0.0"
+  flutter: ">=3.22.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # State management
+  flutter_riverpod: ^2.5.1
+
+  # Routing
+  go_router: ^14.2.0
+
+  # Backend (버전 상한 고정: 2.15.0+ 는 passkeys 의존성으로 web 부팅이 깨짐)
+  supabase_flutter: ">=2.5.6 <2.15.0"
+
+  # Local cache / config
+  shared_preferences: ^2.2.3
+  flutter_dotenv: ^5.1.0
+
+  # Misc
+  http: ^1.2.0
+  html: ^0.15.4
+  web: ^1.1.0
+  cached_network_image: ^3.3.1
+  url_launcher: ^6.3.0
+  intl: ^0.19.0
+
+dev_dependencies:
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - .env
