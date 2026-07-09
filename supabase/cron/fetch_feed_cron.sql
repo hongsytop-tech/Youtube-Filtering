@@ -5,7 +5,7 @@
 
 -- Placeholders:
 --   «PROJECT_REF»       e.g. abcd1234
---   «SCHEDULER_SECRET»  same value set as the SCHEDULER_SECRET function secret
+--   «SCHEDULER_SECRET»  same value set as the YT_SCHEDULER_SECRET function secret
 
 select cron.schedule(
   'fetch-youtube-feed',

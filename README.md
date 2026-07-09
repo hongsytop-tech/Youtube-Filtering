@@ -49,7 +49,7 @@ supabase/{migrations,functions,cron,config.toml}
 2. SQL Editor에서 `supabase/migrations/000*.sql` 순서대로 실행 (RLS 포함)
 3. 스키마 캐시 이슈(404 PGRST205) 시: `NOTIFY pgrst, 'reload schema';`
 4. Edge Functions 배포: `connect-youtube`, `fetch-feed` 코드 붙여넣고 **Deploy updates**
-5. 함수 Secrets 등록: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `SCHEDULER_SECRET` (`SUPABASE_URL`/`SERVICE_ROLE`는 자동)
+5. 함수 Secrets 등록(공유 프로젝트 충돌 방지용 `YT_` 접두사): `YT_GOOGLE_CLIENT_ID`, `YT_GOOGLE_CLIENT_SECRET`, `YT_SCHEDULER_SECRET` (`SUPABASE_URL`/`SERVICE_ROLE`는 자동)
 6. pg_cron/pg_net 확장 활성화 후 `supabase/cron/fetch_feed_cron.sql`의 placeholder 치환해 실행
 
 ### B. Google Cloud

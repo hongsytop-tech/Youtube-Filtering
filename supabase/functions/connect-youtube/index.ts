@@ -18,8 +18,9 @@ function json(body: unknown, status = 200): Response {
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const GOOGLE_CLIENT_ID = Deno.env.get("GOOGLE_CLIENT_ID")!;
-const GOOGLE_CLIENT_SECRET = Deno.env.get("GOOGLE_CLIENT_SECRET")!;
+// Namespaced (YT_) to avoid colliding with other apps' secrets in a shared project.
+const GOOGLE_CLIENT_ID = Deno.env.get("YT_GOOGLE_CLIENT_ID")!;
+const GOOGLE_CLIENT_SECRET = Deno.env.get("YT_GOOGLE_CLIENT_SECRET")!;
 
 async function getUserId(authHeader: string): Promise<string | null> {
   const res = await fetch(`${SUPABASE_URL}/auth/v1/user`, {

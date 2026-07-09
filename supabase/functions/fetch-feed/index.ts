@@ -21,9 +21,10 @@ function json(body: unknown, status = 200): Response {
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const GOOGLE_CLIENT_ID = Deno.env.get("GOOGLE_CLIENT_ID")!;
-const GOOGLE_CLIENT_SECRET = Deno.env.get("GOOGLE_CLIENT_SECRET")!;
-const SCHEDULER_SECRET = Deno.env.get("SCHEDULER_SECRET")!;
+// Namespaced (YT_) to avoid colliding with other apps' secrets in a shared project.
+const GOOGLE_CLIENT_ID = Deno.env.get("YT_GOOGLE_CLIENT_ID")!;
+const GOOGLE_CLIENT_SECRET = Deno.env.get("YT_GOOGLE_CLIENT_SECRET")!;
+const SCHEDULER_SECRET = Deno.env.get("YT_SCHEDULER_SECRET")!;
 
 const YT = "https://www.googleapis.com/youtube/v3";
 const MAX_CHANNELS = 40; // quota guard
