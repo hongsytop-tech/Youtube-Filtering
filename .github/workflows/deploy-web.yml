@@ -17,7 +17,8 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  REPO_NAME: youtube-filtering
+  # Must match the repository name EXACTLY (case-sensitive Pages path).
+  REPO_NAME: Youtube-Filtering
   FLUTTER_VERSION: 3.22.3
 
 jobs:
