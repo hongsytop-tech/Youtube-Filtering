@@ -16,13 +16,14 @@ https://github.com/hongsytop-tech/Youtube-Filtering/releases/download/extension-
 
 ## 설치
 
-### A. Cromite / Lemur (크로미움) — 폰만으로 가장 쉬움
-※ Kiwi는 서비스 종료(Play 스토어에서 내려감). 대신:
-- **Cromite** (https://www.cromite.org, APK) — 유지보수되는 크로미움 포크, 권장
-- **Lemur Browser** — Play 스토어에서 설치 가능
-1. 브라우저 설치 후 주소창에 `chrome://extensions`
-2. **개발자 모드** 켜기 → **"압축 파일에서 로드"**(.zip) 로 위 zip 선택
-3. (일부 브라우저는 압축 해제 폴더를 요구 — 안내대로)
+### A. Lemur Browser (권장, 가장 간단) — 폰만으로
+※ Kiwi는 서비스 종료(Play 스토어에서 내려감).
+1. **Play 스토어에서 "Lemur Browser" 설치**
+2. 주소창에 `chrome://extensions` (또는 메뉴 → Extensions)
+3. **개발자 모드** 켜기 → **"압축 파일 로드"(+)** 로 위 zip 선택
+4. 확장이 목록에 추가되면 완료
+
+(대안) **Cromite** (https://www.cromite.org) — APK 설치 필요(출처 불명 앱 허용). 유지보수 활발.
 
 ### B. Firefox
 - **PC가 있으면**: `web-ext run -t firefox-android`(USB 디버깅)로 설치 — 가장 안정적

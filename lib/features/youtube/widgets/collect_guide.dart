@@ -65,23 +65,22 @@ class CollectGuideScreen extends StatelessWidget {
 
           _StepCard(
             n: 1,
-            title: '확장 지원 브라우저 설치',
+            title: 'Lemur 브라우저 설치',
             children: [
-              const Text('확장을 지원하는 크로미움 브라우저가 필요합니다 '
-                  '(크롬은 안드로이드에서 확장 미지원, Kiwi는 서비스 종료).'),
+              const Text('확장을 지원하는 브라우저가 필요합니다 '
+                  '(크롬은 안드로이드에서 확장 미지원). Lemur가 가장 간단합니다.'),
               const SizedBox(height: 8),
               FilledButton.icon(
-                onPressed: () => _open(_cromiteUrl),
+                onPressed: () => _open(_lemurSearchUrl),
                 icon: const Icon(Icons.open_in_new),
-                label: const Text('Cromite 설치 (권장, 유지보수됨)'),
+                label: const Text('Play 스토어에서 Lemur Browser 설치'),
               ),
               TextButton(
-                onPressed: () => _open(_lemurSearchUrl),
-                child: const Text('또는 Play 스토어에서 Lemur Browser'),
+                onPressed: () => _open(_cromiteUrl),
+                child: const Text('또는 Cromite (APK, 고급)'),
               ),
               const SizedBox(height: 4),
-              const _Note('Cromite는 사이트에서 APK로 설치합니다(스토어 밖 앱 설치 허용 필요). '
-                  'Lemur는 Play 스토어 검색 결과에서 설치하세요.'),
+              const _Note('Play 스토어 검색 결과에서 "Lemur Browser"를 설치하세요.'),
             ],
           ),
 
@@ -111,8 +110,10 @@ class CollectGuideScreen extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               const Text('2) 우측 상단 "개발자 모드" 켜기\n'
-                  '3) "압축 파일 로드"(또는 압축해제된 항목 로드) → 받은 zip 선택\n'
+                  '3) "압축 파일 로드"(또는 +) → 받은 zip 선택\n'
                   '4) 확장이 목록에 추가되면 완료'),
+              const SizedBox(height: 6),
+              const _Note('Lemur는 메뉴(⋮) → Extensions 에서도 zip을 추가할 수 있습니다.'),
             ],
           ),
 
