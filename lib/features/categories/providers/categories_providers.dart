@@ -118,6 +118,17 @@ class CategoriesNotifier extends StateNotifier<CategoriesState> {
     await update(target.copyWith(enabled: !target.enabled));
   }
 
+  /// Turn every category off → the feed shows everything ("전체").
+  Future<void> disableAll() async {
+    final now = DateTime.now();
+    state = state.copyWith(
+      items: state.items
+          .map((c) => c.enabled ? c.copyWith(enabled: false, updatedAt: now) : c)
+          .toList(),
+    );
+    await _persist();
+  }
+
   Future<void> remove(String id) async {
     state = state.copyWith(
       items: state.items.where((c) => c.id != id).toList(),

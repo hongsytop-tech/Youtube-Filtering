@@ -7,9 +7,10 @@ import '../../../core/utils/youtube_categories.dart';
 import '../models/feed_video.dart';
 
 class VideoCard extends StatelessWidget {
-  const VideoCard({super.key, required this.video});
+  const VideoCard({super.key, required this.video, this.onHide});
 
   final FeedVideo video;
+  final VoidCallback? onHide;
 
   Future<void> _open() async {
     final uri = Uri.parse(video.watchUrl);
@@ -26,18 +27,38 @@ class VideoCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            AspectRatio(
-              aspectRatio: 16 / 9,
-              child: CachedNetworkImage(
-                imageUrl: video.thumbnailUrl,
-                fit: BoxFit.cover,
-                placeholder: (_, __) =>
-                    const ColoredBox(color: Colors.black12),
-                errorWidget: (_, __, ___) => const ColoredBox(
-                  color: Colors.black12,
-                  child: Icon(Icons.play_circle_outline, size: 40),
+            Stack(
+              children: [
+                AspectRatio(
+                  aspectRatio: 16 / 9,
+                  child: CachedNetworkImage(
+                    imageUrl: video.thumbnailUrl,
+                    fit: BoxFit.cover,
+                    placeholder: (_, __) =>
+                        const ColoredBox(color: Colors.black12),
+                    errorWidget: (_, __, ___) => const ColoredBox(
+                      color: Colors.black12,
+                      child: Icon(Icons.play_circle_outline, size: 40),
+                    ),
+                  ),
                 ),
-              ),
+                if (onHide != null)
+                  Positioned(
+                    top: 4,
+                    right: 4,
+                    child: Material(
+                      color: Colors.black54,
+                      shape: const CircleBorder(),
+                      child: IconButton(
+                        tooltip: '이 영상 지우기',
+                        iconSize: 20,
+                        visualDensity: VisualDensity.compact,
+                        icon: const Icon(Icons.close, color: Colors.white),
+                        onPressed: onHide,
+                      ),
+                    ),
+                  ),
+              ],
             ),
             Padding(
               padding: const EdgeInsets.all(12),

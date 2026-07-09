@@ -5,6 +5,8 @@ import '../../../core/config/env.dart';
 import '../../../core/supabase/supabase_service.dart';
 import '../../auth/providers/auth_providers.dart';
 import '../../feed/providers/feed_prefs.dart';
+import '../../feed/providers/video_states_providers.dart';
+import '../../feed/screens/hidden_videos_screen.dart';
 import '../../update/update_section.dart';
 import '../../youtube/providers/youtube_providers.dart';
 import '../../youtube/widgets/collect_guide.dart';
@@ -67,6 +69,15 @@ class SettingsScreen extends ConsumerWidget {
               subtitle: const Text('길이 없는 영상 보정 + 쇼츠 다시 판별'),
               onTap: () => _reclassifyShorts(context),
             ),
+          ListTile(
+            leading: const Icon(Icons.visibility_off_outlined),
+            title: const Text('숨긴 영상'),
+            subtitle: Text('${ref.watch(hiddenVideosProvider).length}개'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const HiddenVideosScreen()),
+            ),
+          ),
           const Divider(),
           if (SupabaseService.isSignedIn)
             ListTile(

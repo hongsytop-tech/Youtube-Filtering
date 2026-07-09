@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/supabase/supabase_service.dart';
+import '../../categories/providers/categories_providers.dart';
+import '../../youtube/widgets/collect_guide.dart';
 import '../providers/feed_prefs.dart';
 import '../providers/feed_providers.dart';
+import '../providers/video_states_providers.dart';
 import '../widgets/video_card.dart';
 
 class FeedScreen extends ConsumerWidget {
@@ -24,9 +27,8 @@ class FeedScreen extends ConsumerWidget {
                 ref.read(includeShortsProvider.notifier).set(!includeShorts),
             icon: Icon(
               includeShorts ? Icons.movie : Icons.movie_outlined,
-              color: includeShorts
-                  ? Theme.of(context).colorScheme.primary
-                  : null,
+              color:
+                  includeShorts ? Theme.of(context).colorScheme.primary : null,
             ),
           ),
           IconButton(
@@ -34,40 +36,112 @@ class FeedScreen extends ConsumerWidget {
             onPressed: () => ref.invalidate(feedProvider),
             icon: const Icon(Icons.refresh),
           ),
+          IconButton(
+            tooltip: '새 피드 수집',
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const CollectGuideScreen()),
+            ),
+            icon: const Icon(Icons.download_for_offline),
+          ),
         ],
       ),
-      body: RefreshIndicator(
-        onRefresh: () async => ref.invalidate(feedProvider),
-        child: filtered.when(
-          loading: () => const Center(child: CircularProgressIndicator()),
-          error: (e, _) => ListView(
-            children: [
-              const SizedBox(height: 80),
-              Center(child: Text('피드를 불러오지 못했습니다.\n$e')),
-            ],
-          ),
-          data: (videos) {
-            if (videos.isEmpty) {
-              return ListView(
-                children: const [
-                  SizedBox(height: 80),
-                  _EmptyFeed(),
+      body: Column(
+        children: [
+          const _CategoryBar(),
+          if (!SupabaseService.isSignedIn) const _DemoBanner(),
+          Expanded(
+            child: filtered.when(
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (e, _) => ListView(
+                children: [
+                  const SizedBox(height: 80),
+                  Center(child: Text('피드를 불러오지 못했습니다.\n$e')),
                 ],
-              );
-            }
-            return Column(
-              children: [
-                if (!SupabaseService.isSignedIn) const _DemoBanner(),
-                Expanded(
-                  child: ListView.builder(
-                    padding: const EdgeInsets.only(bottom: 24),
-                    itemCount: videos.length,
-                    itemBuilder: (_, i) => VideoCard(video: videos[i]),
+              ),
+              data: (videos) => RefreshIndicator(
+                onRefresh: () async => ref.invalidate(feedProvider),
+                child: videos.isEmpty
+                    ? ListView(
+                        children: const [SizedBox(height: 80), _EmptyFeed()],
+                      )
+                    : ListView.builder(
+                        padding: const EdgeInsets.only(bottom: 24),
+                        itemCount: videos.length,
+                        itemBuilder: (context, i) {
+                          final v = videos[i];
+                          return VideoCard(
+                            video: v,
+                            onHide: () => _hide(context, ref, v.videoId),
+                          );
+                        },
+                      ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _hide(BuildContext context, WidgetRef ref, String videoId) {
+    ref.read(hiddenVideosProvider.notifier).hide(videoId);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Text('영상을 지웠습니다'),
+        action: SnackBarAction(
+          label: '실행취소',
+          onPressed: () =>
+              ref.read(hiddenVideosProvider.notifier).unhide(videoId),
+        ),
+      ),
+    );
+  }
+}
+
+/// Sticky, horizontally-scrollable category selector at the top of the feed.
+class _CategoryBar extends ConsumerWidget {
+  const _CategoryBar();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final state = ref.watch(categoriesProvider);
+    if (state.items.isEmpty) return const SizedBox.shrink();
+
+    final anyEnabled = state.items.any((c) => c.enabled);
+
+    return Material(
+      elevation: 1,
+      child: SizedBox(
+        height: 52,
+        child: ListView(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              child: FilterChip(
+                label: const Text('전체'),
+                selected: !anyEnabled,
+                onSelected: (_) =>
+                    ref.read(categoriesProvider.notifier).disableAll(),
+              ),
+            ),
+            ...state.items.map(
+              (c) => Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                child: FilterChip(
+                  label: Text(c.name),
+                  selected: c.enabled,
+                  avatar: CircleAvatar(
+                    backgroundColor: Color(c.color),
+                    radius: 6,
                   ),
+                  onSelected: (_) =>
+                      ref.read(categoriesProvider.notifier).toggle(c.id),
                 ),
-              ],
-            );
-          },
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -100,7 +174,7 @@ class _EmptyFeed extends StatelessWidget {
       child: Padding(
         padding: EdgeInsets.all(32),
         child: Text(
-          '선택한 카테고리에 해당하는 영상이 없습니다.\n카테고리 탭에서 조건을 조정해 보세요.',
+          '선택한 카테고리에 해당하는 영상이 없습니다.\n상단 카테고리를 조정하거나 "전체"를 눌러보세요.',
           textAlign: TextAlign.center,
         ),
       ),

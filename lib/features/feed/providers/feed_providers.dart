@@ -6,6 +6,7 @@ import '../../categories/providers/categories_providers.dart';
 import '../models/feed_video.dart';
 import '../services/feed_service.dart';
 import 'feed_prefs.dart';
+import 'video_states_providers.dart';
 
 final feedServiceProvider = Provider<FeedService>(
   (ref) => FeedService(ref.watch(localStorageProvider)),
@@ -22,8 +23,9 @@ final filteredFeedProvider = Provider.autoDispose<AsyncValue<List<FeedVideo>>>(
     final feed = ref.watch(feedProvider);
     final enabled = ref.watch(categoriesProvider).enabled;
     final includeShorts = ref.watch(includeShortsProvider);
+    final hidden = ref.watch(hiddenVideosProvider);
     return feed.whenData(
-      (videos) => _applyFilter(videos, enabled, includeShorts),
+      (videos) => _applyFilter(videos, enabled, includeShorts, hidden),
     );
   },
 );
@@ -32,8 +34,9 @@ List<FeedVideo> _applyFilter(
   List<FeedVideo> videos,
   List<FilterCategory> enabled,
   bool includeShorts,
+  Set<String> hidden,
 ) {
-  var pool = videos;
+  var pool = videos.where((v) => !hidden.contains(v.videoId)).toList();
   if (!includeShorts) {
     pool = pool.where((v) => !v.isShort).toList();
   }
