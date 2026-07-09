@@ -5,9 +5,10 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../feed/providers/feed_providers.dart';
 
-const _kiwiPlayUrl =
-    'https://play.google.com/store/apps/details?id=com.kiwibrowser.browser';
+// Kiwi is discontinued/removed from Play. Use maintained alternatives.
 const _cromiteUrl = 'https://www.cromite.org/';
+const _lemurSearchUrl =
+    'https://play.google.com/store/search?q=Lemur%20Browser&c=apps';
 const _extensionZipUrl =
     'https://github.com/hongsytop-tech/Youtube-Filtering/releases/download/extension-latest/feedfilter-extension.zip';
 
@@ -66,17 +67,21 @@ class CollectGuideScreen extends StatelessWidget {
             n: 1,
             title: '확장 지원 브라우저 설치',
             children: [
-              const Text('확장을 지원하는 브라우저가 필요합니다 (크롬은 안드로이드에서 확장 미지원).'),
+              const Text('확장을 지원하는 크로미움 브라우저가 필요합니다 '
+                  '(크롬은 안드로이드에서 확장 미지원, Kiwi는 서비스 종료).'),
               const SizedBox(height: 8),
               FilledButton.icon(
-                onPressed: () => _open(_kiwiPlayUrl),
+                onPressed: () => _open(_cromiteUrl),
                 icon: const Icon(Icons.open_in_new),
-                label: const Text('Kiwi 브라우저 설치 (Play 스토어)'),
+                label: const Text('Cromite 설치 (권장, 유지보수됨)'),
               ),
               TextButton(
-                onPressed: () => _open(_cromiteUrl),
-                child: const Text('또는 Cromite 브라우저 받기'),
+                onPressed: () => _open(_lemurSearchUrl),
+                child: const Text('또는 Play 스토어에서 Lemur Browser'),
               ),
+              const SizedBox(height: 4),
+              const _Note('Cromite는 사이트에서 APK로 설치합니다(스토어 밖 앱 설치 허용 필요). '
+                  'Lemur는 Play 스토어 검색 결과에서 설치하세요.'),
             ],
           ),
 
