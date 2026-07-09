@@ -33,7 +33,7 @@ jobs:
 
       # Regenerate platform folders (web/) that are gitignored.
       - name: flutter create
-        run: flutter create --platforms web .
+        run: flutter create --platforms web --project-name youtube_filtering .
 
       - name: Write .env from secrets
         run: |
