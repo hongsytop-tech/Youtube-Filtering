@@ -1,19 +1,20 @@
 {
   "manifest_version": 2,
   "name": "피드필터 수집기",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "YouTube 홈 추천 영상을 피드필터 앱으로 수집합니다. (자동/수동)",
   "icons": { "48": "icon-48.png", "96": "icon-96.png" },
   "permissions": [
     "storage",
     "tabs",
-    "https://www.youtube.com/*",
+    "https://*.youtube.com/*",
+    "https://youtube.com/*",
     "https://*.supabase.co/*"
   ],
   "background": { "scripts": ["background.js"], "persistent": false },
   "content_scripts": [
     {
-      "matches": ["https://www.youtube.com/*"],
+      "matches": ["https://*.youtube.com/*", "https://youtube.com/*"],
       "js": ["content.js"],
       "run_at": "document_idle"
     }
