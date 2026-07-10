@@ -20,6 +20,12 @@ class CategoriesService {
   Future<void> markPresetsLoaded() =>
       _local.setString(_presetFlag, 'true');
 
+  static const _legacyFlag = 'legacy_defaults_removed_v1';
+
+  /// Whether the one-time cleanup of the old coarse seed categories has run.
+  bool get legacyRemoved => _local.getString(_legacyFlag) == 'true';
+  Future<void> markLegacyRemoved() => _local.setString(_legacyFlag, 'true');
+
   List<FilterCategory> loadLocal() =>
       _local.getJsonList(_key).map(FilterCategory.fromJson).toList();
 

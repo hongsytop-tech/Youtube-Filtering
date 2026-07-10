@@ -65,12 +65,39 @@ class CategoriesNotifier extends StateNotifier<CategoriesState> {
     // One-time backfill: existing users (who only have the old coarse seeds)
     // automatically get the full fine-grained preset set on next launch.
     await _ensurePresets();
+    // Then retire the old coarse YouTube-category seeds so the whole system is
+    // consistently topic-based (top-bar chip == card label).
+    await _removeLegacyDefaults();
   }
 
   Future<void> _ensurePresets() async {
     if (_svc.presetsLoaded) return;
     await addPresets(); // adds any missing presets (disabled) and persists
     await _svc.markPresetsLoaded();
+  }
+
+  /// One-time cleanup: remove the original coarse seed categories (교육/지식,
+  /// 음악, 게임) that filter by broad YouTube category id and overlap with the
+  /// fine-grained topics. Only removes ones untouched by the user (no custom
+  /// topics/keywords and the exact default ids), so edits are preserved.
+  Future<void> _removeLegacyDefaults() async {
+    if (_svc.legacyRemoved) return;
+    bool isLegacy(FilterCategory c) {
+      if (c.topics.isNotEmpty || c.keywords.isNotEmpty) return false;
+      final ids = c.youtubeCategoryIds.toSet();
+      return (c.name == '교육/지식' &&
+              ids.length == 2 &&
+              ids.containsAll({'27', '28'})) ||
+          (c.name == '음악' && ids.length == 1 && ids.contains('10')) ||
+          (c.name == '게임' && ids.length == 1 && ids.contains('20'));
+    }
+
+    final kept = state.items.where((c) => !isLegacy(c)).toList();
+    if (kept.length != state.items.length) {
+      state = state.copyWith(items: _sorted(kept));
+      await _persist();
+    }
+    await _svc.markLegacyRemoved();
   }
 
   /// Pull-before-push: never overwrites the cloud with stale local data.
