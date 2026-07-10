@@ -27,7 +27,7 @@ class FeedService {
         .select()
         .eq('user_id', user.id)
         .order('published_at', ascending: false)
-        .limit(200);
+        .limit(1000);
 
     final videos = (rows as List)
         .map((e) => FeedVideo.fromJson(Map<String, dynamic>.from(e as Map)))

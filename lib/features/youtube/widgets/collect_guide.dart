@@ -119,14 +119,24 @@ class CollectGuideScreen extends StatelessWidget {
 
           _StepCard(
             n: 4,
-            title: '유튜브 홈에서 수집',
+            title: '로그인 & 자동 수집 켜기 (최초 1회)',
             children: [
-              const Text('1) 같은 브라우저에서 로그인된 상태로 youtube.com 홈 열기\n'
-                  '2) 확장 아이콘 탭 → (최초 1회) 앱 계정으로 로그인\n'
-                  '3) "홈 피드 수집" 탭 → 완료되면 이 앱 피드 탭 새로고침'),
+              const Text('1) 확장 아이콘 탭 → 앱 계정으로 로그인 '
+                  '(Supabase 값은 이미 들어있어 입력 불필요)\n'
+                  '2) "홈 열면 자동 수집" 스위치 켜기'),
+            ],
+          ),
+          _StepCard(
+            n: 5,
+            title: '원터치 자동 수집',
+            children: [
+              const Text('이제 브라우저에서 youtube.com 홈을 열기만 하면 '
+                  '자동으로 수집됩니다.\n'
+                  '브라우저 메뉴 → "홈 화면에 추가"로 youtube.com 바로가기를 만들면 '
+                  '→ 아이콘 한 번 탭 = 홈 열림 + 자동 수집.'),
               const SizedBox(height: 8),
-              const _Note('반복해서 수집하면 영상이 누적됩니다(중복 자동 제거). '
-                  '쇼츠는 마이 탭의 "쇼츠 포함" 스위치로 켜고/끌 수 있습니다.'),
+              const _Note('수동으로 하려면 확장 팝업의 "지금 이 화면 수집". '
+                  '반복 수집은 누적(중복 자동 제거)되고, 쇼츠는 마이 탭 "쇼츠 포함"으로 조절.'),
             ],
           ),
         ],
