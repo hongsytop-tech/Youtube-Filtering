@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/supabase/supabase_service.dart';
 import '../../categories/providers/categories_providers.dart';
-import '../../youtube/widgets/collect_guide.dart';
 import '../providers/feed_prefs.dart';
 import '../providers/feed_providers.dart';
 import '../providers/video_states_providers.dart';
@@ -16,6 +15,7 @@ class FeedScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final filtered = ref.watch(filteredFeedProvider);
     final includeShorts = ref.watch(includeShortsProvider);
+    final collecting = ref.watch(feedCollectingProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -37,11 +37,15 @@ class FeedScreen extends ConsumerWidget {
             icon: const Icon(Icons.refresh),
           ),
           IconButton(
-            tooltip: '새 피드 수집',
-            onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const CollectGuideScreen()),
-            ),
-            icon: const Icon(Icons.download_for_offline),
+            tooltip: '새 피드 수집 (구독 채널)',
+            onPressed: collecting ? null : () => _collect(context, ref),
+            icon: collecting
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.download_for_offline),
           ),
         ],
       ),
@@ -81,6 +85,42 @@ class FeedScreen extends ConsumerWidget {
         ],
       ),
     );
+  }
+
+  Future<void> _collect(BuildContext context, WidgetRef ref) async {
+    final messenger = ScaffoldMessenger.of(context);
+    if (!SupabaseService.isSignedIn) {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('먼저 마이 탭에서 로그인/YouTube 연결을 해주세요.')),
+      );
+      return;
+    }
+    ref.read(feedCollectingProvider.notifier).state = true;
+    messenger.showSnackBar(
+      const SnackBar(content: Text('구독 채널 최신 영상 수집 중…')),
+    );
+    try {
+      final res = await SupabaseService.client.functions.invoke(
+        'fetch-feed',
+        body: const {},
+      );
+      final results = (res.data as Map?)?['results'] as Map?;
+      final first = (results != null && results.isNotEmpty)
+          ? results.values.first
+          : null;
+      ref.invalidate(feedProvider);
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            first is int ? '구독 영상 $first개 수집 완료.' : '수집 완료. 피드를 갱신했습니다.',
+          ),
+        ),
+      );
+    } catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text('수집 실패: $e')));
+    } finally {
+      ref.read(feedCollectingProvider.notifier).state = false;
+    }
   }
 
   void _hide(BuildContext context, WidgetRef ref, String videoId) {

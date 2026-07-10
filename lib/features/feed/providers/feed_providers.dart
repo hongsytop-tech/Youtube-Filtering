@@ -12,6 +12,9 @@ final feedServiceProvider = Provider<FeedService>(
   (ref) => FeedService(ref.watch(localStorageProvider)),
 );
 
+/// True while an in-app (server-side subscription) collection is running.
+final feedCollectingProvider = StateProvider<bool>((ref) => false);
+
 final feedProvider = FutureProvider.autoDispose<List<FeedVideo>>(
   (ref) => ref.watch(feedServiceProvider).fetch(),
 );
