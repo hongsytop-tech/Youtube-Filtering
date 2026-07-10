@@ -46,14 +46,17 @@ List<FeedVideo> _applyFilter(
   if (enabled.isEmpty) return pool;
 
   final catIds = <String>{};
+  final topics = <String>{};
   final keywords = <String>[];
   for (final c in enabled) {
     catIds.addAll(c.youtubeCategoryIds);
+    topics.addAll(c.topics);
     keywords.addAll(c.keywords.map((k) => k.toLowerCase()));
   }
 
   return pool.where((v) {
     if (catIds.contains(v.categoryId)) return true;
+    if (topics.isNotEmpty && v.topics.any(topics.contains)) return true;
     if (keywords.isEmpty) return false;
     final title = v.title.toLowerCase();
     return keywords.any(title.contains);

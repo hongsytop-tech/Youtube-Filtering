@@ -86,6 +86,7 @@ class CategoriesNotifier extends StateNotifier<CategoriesState> {
     required int color,
     required List<String> youtubeCategoryIds,
     required List<String> keywords,
+    List<String> topics = const [],
   }) async {
     final now = DateTime.now();
     final item = FilterCategory(
@@ -94,6 +95,7 @@ class CategoriesNotifier extends StateNotifier<CategoriesState> {
       color: color,
       youtubeCategoryIds: youtubeCategoryIds,
       keywords: keywords,
+      topics: topics,
       enabled: true,
       order: state.items.length,
       createdAt: now,

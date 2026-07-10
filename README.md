@@ -48,8 +48,8 @@ supabase/{migrations,functions,cron,config.toml}
 1. 프로젝트 생성 → `SUPABASE_URL`, `anon key` 확보
 2. SQL Editor에서 `supabase/migrations/000*.sql` 순서대로 실행 (RLS 포함)
 3. 스키마 캐시 이슈(404 PGRST205) 시: `NOTIFY pgrst, 'reload schema';`
-4. Edge Functions 배포: `connect-youtube`, `fetch-feed`, `ingest-feed` 코드 붙여넣고 **Deploy updates**
-5. 함수 Secrets 등록(공유 프로젝트 충돌 방지용 `YT_` 접두사): `YT_GOOGLE_CLIENT_ID`, `YT_GOOGLE_CLIENT_SECRET`, `YT_SCHEDULER_SECRET` (`SUPABASE_URL`/`SERVICE_ROLE`는 자동)
+4. Edge Functions 배포: `connect-youtube`, `fetch-feed`, `ingest-feed`, `tag-feed` 코드 붙여넣고 **Deploy updates**
+5. 함수 Secrets 등록(공유 프로젝트 충돌 방지용 `YT_` 접두사): `YT_GOOGLE_CLIENT_ID`, `YT_GOOGLE_CLIENT_SECRET`, `YT_SCHEDULER_SECRET`, 그리고 세부 주제 자동 분류용 `ANTHROPIC_API_KEY` (`SUPABASE_URL`/`SERVICE_ROLE`는 자동)
 6. pg_cron/pg_net 확장 활성화 후 `supabase/cron/fetch_feed_cron.sql`의 placeholder 치환해 실행
 
 ### B. Google Cloud
@@ -68,7 +68,8 @@ supabase/{migrations,functions,cron,config.toml}
 - Flutter 앱 전체 스캐폴드(core/auth/feed/categories/설정/자가업데이트)
 - 카테고리 필터 기능(로컬+Supabase 동기화, RLS 테이블/마이그레이션)
 - 데모 샘플 피드(가짜 데이터)로 필터 UI 동작 확인 가능
-- Edge Functions(`connect-youtube`, `fetch-feed`)와 cron 템플릿
+- Edge Functions(`connect-youtube`, `fetch-feed`, `ingest-feed`, `tag-feed`)와 cron 템플릿
+- 세부 주제(세분화) 자동 분류: Claude Haiku가 영상별 태그를 붙이고, 카테고리에서 주제로 필터
 - GitHub Pages 배포 워크플로우 + 아티팩트 정리
 
 ## 다음 단계

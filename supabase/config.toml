@@ -12,3 +12,7 @@ verify_jwt = false
 # Called by the browser extension; user resolved manually from the token.
 [functions.ingest-feed]
 verify_jwt = false
+
+# Assigns fine-grained topic tags via Claude; user resolved manually.
+[functions.tag-feed]
+verify_jwt = false

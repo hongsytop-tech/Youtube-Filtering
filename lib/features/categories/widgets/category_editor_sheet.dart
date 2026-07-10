@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/utils/feed_topics.dart';
 import '../../../core/utils/youtube_categories.dart';
 import '../models/filter_category.dart';
 
@@ -9,12 +10,14 @@ class CategoryDraft {
     required this.color,
     required this.youtubeCategoryIds,
     required this.keywords,
+    required this.topics,
   });
 
   final String name;
   final int color;
   final List<String> youtubeCategoryIds;
   final List<String> keywords;
+  final List<String> topics;
 }
 
 class CategoryEditorSheet extends StatefulWidget {
@@ -30,6 +33,7 @@ class _CategoryEditorSheetState extends State<CategoryEditorSheet> {
   late final TextEditingController _name;
   late final TextEditingController _keywords;
   late Set<String> _selectedIds;
+  late Set<String> _selectedTopics;
   late int _color;
 
   static const _palette = <int>[
@@ -48,6 +52,7 @@ class _CategoryEditorSheetState extends State<CategoryEditorSheet> {
     _name = TextEditingController(text: e?.name ?? '');
     _keywords = TextEditingController(text: e?.keywords.join(', ') ?? '');
     _selectedIds = {...?e?.youtubeCategoryIds};
+    _selectedTopics = {...?e?.topics};
     _color = e?.color ?? _palette.first;
   }
 
@@ -70,6 +75,45 @@ class _CategoryEditorSheetState extends State<CategoryEditorSheet> {
         color: _color,
         youtubeCategoryIds: _selectedIds.toList(),
         keywords: keywords,
+        topics: _selectedTopics.toList(),
+      ),
+    );
+  }
+
+  Widget _topicGroup(MapEntry<String, List<String>> group) {
+    final selectedInGroup =
+        group.value.where(_selectedTopics.contains).length;
+    return Theme(
+      data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+      child: ExpansionTile(
+        tilePadding: EdgeInsets.zero,
+        childrenPadding: const EdgeInsets.only(bottom: 8),
+        title: Text(
+          selectedInGroup > 0 ? '${group.key} ($selectedInGroup)' : group.key,
+        ),
+        children: [
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 4,
+              children: group.value.map((t) {
+                final selected = _selectedTopics.contains(t);
+                return FilterChip(
+                  label: Text(t),
+                  selected: selected,
+                  onSelected: (v) => setState(() {
+                    if (v) {
+                      _selectedTopics.add(t);
+                    } else {
+                      _selectedTopics.remove(t);
+                    }
+                  }),
+                );
+              }).toList(),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -103,7 +147,28 @@ class _CategoryEditorSheetState extends State<CategoryEditorSheet> {
               ),
             ),
             const SizedBox(height: 16),
-            const Text('YouTube 카테고리'),
+            Row(
+              children: [
+                const Text('세부 주제'),
+                const SizedBox(width: 8),
+                if (_selectedTopics.isNotEmpty)
+                  Text(
+                    '${_selectedTopics.length}개 선택',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'AI가 영상별로 붙인 세부 주제입니다. 여러 개 선택하면 그중 하나라도 맞으면 노출됩니다.',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).hintColor,
+                  ),
+            ),
+            const SizedBox(height: 8),
+            ...FeedTopics.groups.entries.map(_topicGroup),
+            const SizedBox(height: 16),
+            const Text('YouTube 카테고리 (대분류)'),
             const SizedBox(height: 8),
             Wrap(
               spacing: 8,

@@ -11,6 +11,7 @@ class FeedVideo {
     required this.categoryId,
     this.durationSeconds,
     this.isShort = false,
+    this.topics = const [],
   });
 
   final String videoId;
@@ -22,6 +23,9 @@ class FeedVideo {
   final String categoryId;
   final int? durationSeconds;
   final bool isShort;
+
+  /// Fine-grained topic tags assigned by the tag-feed Edge Function.
+  final List<String> topics;
 
   String get watchUrl => 'https://www.youtube.com/watch?v=$videoId';
 
@@ -39,6 +43,8 @@ class FeedVideo {
         durationSeconds:
             (j['durationSeconds'] ?? j['duration_seconds']) as int?,
         isShort: (j['isShort'] ?? j['is_short'] ?? false) as bool,
+        topics: ((j['topics']) as List?)?.map((e) => '$e').toList() ??
+            const [],
       );
 
   Map<String, dynamic> toJson() => {
@@ -51,5 +57,6 @@ class FeedVideo {
         'categoryId': categoryId,
         'durationSeconds': durationSeconds,
         'isShort': isShort,
+        'topics': topics,
       };
 }

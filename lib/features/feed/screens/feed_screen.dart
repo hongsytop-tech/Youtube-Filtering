@@ -108,6 +108,10 @@ class FeedScreen extends ConsumerWidget {
       final first = (results != null && results.isNotEmpty)
           ? results.values.first
           : null;
+      // Assign fine-grained topic tags to the freshly-collected videos.
+      try {
+        await SupabaseService.client.functions.invoke('tag-feed');
+      } catch (_) {/* best-effort; the shell retries on resume */}
       ref.invalidate(feedProvider);
       messenger.showSnackBar(
         SnackBar(

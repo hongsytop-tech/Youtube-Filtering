@@ -70,6 +70,7 @@ class CategoriesScreen extends ConsumerWidget {
         color: result.color,
         youtubeCategoryIds: result.youtubeCategoryIds,
         keywords: result.keywords,
+        topics: result.topics,
       );
     } else {
       await notifier.update(existing.copyWith(
@@ -77,6 +78,7 @@ class CategoriesScreen extends ConsumerWidget {
         color: result.color,
         youtubeCategoryIds: result.youtubeCategoryIds,
         keywords: result.keywords,
+        topics: result.topics,
       ));
     }
   }
@@ -97,8 +99,8 @@ class _CategoryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final labels = category.youtubeCategoryIds
-        .map(YoutubeCategories.label)
+    final labels = category.topics
+        .followedBy(category.youtubeCategoryIds.map(YoutubeCategories.label))
         .followedBy(category.keywords.map((k) => '#$k'))
         .join(' · ');
 

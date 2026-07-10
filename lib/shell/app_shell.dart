@@ -33,7 +33,28 @@ class _AppShellState extends ConsumerState<AppShell>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    WidgetsBinding.instance.addPostFrameCallback((_) => _maybeAutoReclassify());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _maybeAutoReclassify();
+      _maybeAutoTag();
+    });
+  }
+
+  /// Ask the server to assign fine-grained topic tags to any untagged videos
+  /// (Claude Haiku). Idempotent + throttled, so it's safe to call on launch and
+  /// whenever the app is resumed. Refreshes the feed if anything was tagged.
+  Future<void> _maybeAutoTag() async {
+    if (!SupabaseService.isSignedIn) return;
+    final store = ref.read(localStorageProvider);
+    final last = DateTime.tryParse(store.getString('last_auto_tag') ?? '');
+    if (last != null && DateTime.now().difference(last).inMinutes < 10) return;
+    await store.setString('last_auto_tag', DateTime.now().toIso8601String());
+    try {
+      final res = await SupabaseService.client.functions.invoke('tag-feed');
+      final tagged = (res.data as Map?)?['tagged'];
+      if (mounted && tagged is int && tagged > 0) ref.invalidate(feedProvider);
+    } catch (_) {
+      // best-effort; will retry on the next launch/resume
+    }
   }
 
   /// Silently re-classify Shorts / backfill durations once a day, so the user
@@ -76,6 +97,7 @@ class _AppShellState extends ConsumerState<AppShell>
     }
     _lastRefresh = now;
     ref.invalidate(feedProvider);
+    _maybeAutoTag();
   }
 
   int _indexFor(String location) {

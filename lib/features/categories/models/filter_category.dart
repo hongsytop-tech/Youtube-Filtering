@@ -7,6 +7,7 @@ class FilterCategory {
     required this.color,
     required this.youtubeCategoryIds,
     required this.keywords,
+    this.topics = const [],
     required this.enabled,
     required this.order,
     required this.createdAt,
@@ -18,6 +19,9 @@ class FilterCategory {
   final int color; // ARGB int
   final List<String> youtubeCategoryIds;
   final List<String> keywords;
+
+  /// Fine-grained topics (see FeedTopics) matched against a video's tags.
+  final List<String> topics;
   final bool enabled;
   final int order;
   final DateTime createdAt;
@@ -35,6 +39,7 @@ class FilterCategory {
               const [],
       keywords:
           (j['keywords'] as List?)?.map((e) => '$e').toList() ?? const [],
+      topics: (j['topics'] as List?)?.map((e) => '$e').toList() ?? const [],
       enabled: j['enabled'] as bool? ?? true,
       order: (j['order'] as num?)?.toInt() ?? 0,
       createdAt: created,
@@ -49,6 +54,7 @@ class FilterCategory {
         'color': color,
         'youtubeCategoryIds': youtubeCategoryIds,
         'keywords': keywords,
+        'topics': topics,
         'enabled': enabled,
         'order': order,
         'createdAt': createdAt.toIso8601String(),
@@ -60,6 +66,7 @@ class FilterCategory {
     int? color,
     List<String>? youtubeCategoryIds,
     List<String>? keywords,
+    List<String>? topics,
     bool? enabled,
     int? order,
     DateTime? updatedAt,
@@ -70,6 +77,7 @@ class FilterCategory {
       color: color ?? this.color,
       youtubeCategoryIds: youtubeCategoryIds ?? this.youtubeCategoryIds,
       keywords: keywords ?? this.keywords,
+      topics: topics ?? this.topics,
       enabled: enabled ?? this.enabled,
       order: order ?? this.order,
       createdAt: createdAt,
