@@ -62,6 +62,15 @@ class CategoriesNotifier extends StateNotifier<CategoriesState> {
     } else if (local.isEmpty) {
       await _seedDefaults();
     }
+    // One-time backfill: existing users (who only have the old coarse seeds)
+    // automatically get the full fine-grained preset set on next launch.
+    await _ensurePresets();
+  }
+
+  Future<void> _ensurePresets() async {
+    if (_svc.presetsLoaded) return;
+    await addPresets(); // adds any missing presets (disabled) and persists
+    await _svc.markPresetsLoaded();
   }
 
   /// Pull-before-push: never overwrites the cloud with stale local data.

@@ -11,6 +11,12 @@ class CategoriesService {
 
   static const _key = 'filter_categories';
   static const _table = 'filter_categories';
+  static const _presetFlag = 'presets_loaded_v1';
+
+  /// Whether the one-time fine-grained preset backfill has run on this device.
+  bool get presetsLoaded => _local.getString(_presetFlag) == 'true';
+  Future<void> markPresetsLoaded() =>
+      _local.setString(_presetFlag, 'true');
 
   List<FilterCategory> loadLocal() =>
       _local.getJsonList(_key).map(FilterCategory.fromJson).toList();
