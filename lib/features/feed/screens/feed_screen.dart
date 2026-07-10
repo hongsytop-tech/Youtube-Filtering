@@ -148,10 +148,9 @@ class _CategoryBar extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final state = ref.watch(categoriesProvider);
-    if (state.items.isEmpty) return const SizedBox.shrink();
-
-    final anyEnabled = state.items.any((c) => c.enabled);
+    final items = ref.watch(visibleCategoriesProvider);
+    final anyEnabled = ref.watch(categoriesProvider).items.any((c) => c.enabled);
+    if (items.isEmpty && !anyEnabled) return const SizedBox.shrink();
 
     return Material(
       elevation: 1,
@@ -170,7 +169,7 @@ class _CategoryBar extends ConsumerWidget {
                     ref.read(categoriesProvider.notifier).disableAll(),
               ),
             ),
-            ...state.items.map(
+            ...items.map(
               (c) => Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 4),
                 child: FilterChip(

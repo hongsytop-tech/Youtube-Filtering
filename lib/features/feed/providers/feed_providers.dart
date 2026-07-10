@@ -33,6 +33,34 @@ final filteredFeedProvider = Provider.autoDispose<AsyncValue<List<FeedVideo>>>(
   },
 );
 
+/// True if [c] would surface [v] (same rule the feed filter uses per-category).
+bool categoryMatchesVideo(FilterCategory c, FeedVideo v) {
+  if (c.youtubeCategoryIds.contains(v.categoryId)) return true;
+  if (c.topics.any(v.topics.contains)) return true;
+  if (c.keywords.isEmpty) return false;
+  final title = v.title.toLowerCase();
+  return c.keywords.any((k) => title.contains(k.toLowerCase()));
+}
+
+/// Categories worth showing in the feed's selector: those that actually match
+/// at least one collected video (plus any currently-enabled one, so it can
+/// still be toggled off). Keeps the bar from listing empty categories.
+final visibleCategoriesProvider =
+    Provider.autoDispose<List<FilterCategory>>((ref) {
+  final videos = ref.watch(feedProvider).asData?.value ?? const <FeedVideo>[];
+  final cats = ref.watch(categoriesProvider).items;
+  final includeShorts = ref.watch(includeShortsProvider);
+  final hidden = ref.watch(hiddenVideosProvider);
+
+  var pool = videos.where((v) => !hidden.contains(v.videoId));
+  if (!includeShorts) pool = pool.where((v) => !v.isShort);
+  final list = pool.toList(growable: false);
+
+  return cats
+      .where((c) => c.enabled || list.any((v) => categoryMatchesVideo(c, v)))
+      .toList(growable: false);
+});
+
 List<FeedVideo> _applyFilter(
   List<FeedVideo> videos,
   List<FilterCategory> enabled,
