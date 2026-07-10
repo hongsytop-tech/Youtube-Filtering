@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../core/providers/core_providers.dart';
 import '../core/router/app_router.dart';
+import '../core/supabase/supabase_service.dart';
 import '../features/feed/providers/feed_providers.dart';
 import '../features/update/auto_updater.dart';
 import '../features/update/update_banner.dart';
@@ -31,6 +33,29 @@ class _AppShellState extends ConsumerState<AppShell>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _maybeAutoReclassify());
+  }
+
+  /// Silently re-classify Shorts / backfill durations once a day, so the user
+  /// never has to press the manual button. Cheap after the first cleanup.
+  Future<void> _maybeAutoReclassify() async {
+    if (!SupabaseService.isSignedIn) return;
+    final store = ref.read(localStorageProvider);
+    final last = DateTime.tryParse(store.getString('last_auto_reclassify') ?? '');
+    if (last != null && DateTime.now().difference(last).inHours < 24) return;
+    await store.setString(
+      'last_auto_reclassify',
+      DateTime.now().toIso8601String(),
+    );
+    try {
+      await SupabaseService.client.functions.invoke(
+        'ingest-feed',
+        body: {'reclassify': true},
+      );
+      if (mounted) ref.invalidate(feedProvider);
+    } catch (_) {
+      // best-effort; extension already classifies new collections
+    }
   }
 
   @override
