@@ -1,14 +1,24 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../core/router/app_router.dart';
+import '../features/feed/providers/feed_providers.dart';
 import '../features/update/auto_updater.dart';
 import '../features/update/update_banner.dart';
 
-class AppShell extends StatelessWidget {
+class AppShell extends ConsumerStatefulWidget {
   const AppShell({super.key, required this.child});
 
   final Widget child;
+
+  @override
+  ConsumerState<AppShell> createState() => _AppShellState();
+}
+
+class _AppShellState extends ConsumerState<AppShell>
+    with WidgetsBindingObserver {
+  DateTime? _lastRefresh;
 
   static const _tabs = <String>[
     Routes.feed,
@@ -16,6 +26,32 @@ class AppShell extends StatelessWidget {
     Routes.channels,
     Routes.settings,
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  /// Re-pull the feed when returning to the app (e.g. after collecting in
+  /// another tab/browser). Throttled so it doesn't refetch on every focus.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed) return;
+    final now = DateTime.now();
+    if (_lastRefresh != null &&
+        now.difference(_lastRefresh!).inSeconds < 10) {
+      return;
+    }
+    _lastRefresh = now;
+    ref.invalidate(feedProvider);
+  }
 
   int _indexFor(String location) {
     for (var i = 0; i < _tabs.length; i++) {
@@ -34,7 +70,7 @@ class AppShell extends StatelessWidget {
         children: [
           const AutoUpdater(),
           const UpdateBanner(),
-          Expanded(child: child),
+          Expanded(child: widget.child),
         ],
       ),
       bottomNavigationBar: NavigationBar(
