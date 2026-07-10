@@ -71,9 +71,13 @@ api.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
           set({ ffLastAuto: Date.now() });
           badge(r.inserted);
         }
+        set({ ffLastResult: { ...r, ts: Date.now() } });
         sendResponse(r);
       })
-      .catch((e) => sendResponse({ error: String(e) }));
+      .catch((e) => {
+        set({ ffLastResult: { error: String(e), ts: Date.now() } });
+        sendResponse({ error: String(e) });
+      });
     return true; // async response
   }
 });

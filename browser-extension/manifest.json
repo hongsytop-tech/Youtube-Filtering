@@ -1,7 +1,7 @@
 {
   "manifest_version": 2,
   "name": "피드필터 수집기",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "YouTube 홈 추천 영상을 피드필터 앱으로 수집합니다. (자동/수동)",
   "icons": { "48": "icon-48.png", "96": "icon-96.png" },
   "permissions": [
