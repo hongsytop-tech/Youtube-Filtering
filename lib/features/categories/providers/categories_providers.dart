@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/providers/core_providers.dart';
 import '../../../core/supabase/supabase_service.dart';
+import '../data/category_presets.dart';
 import '../models/filter_category.dart';
 import '../services/categories_service.dart';
 
@@ -131,6 +132,35 @@ class CategoriesNotifier extends StateNotifier<CategoriesState> {
     await _persist();
   }
 
+  /// Bulk-add the curated fine-grained presets that aren't present yet (matched
+  /// by name). Added disabled so they don't suddenly re-filter the feed — the
+  /// user toggles on the ones they want. Returns how many were added.
+  Future<int> addPresets() async {
+    final existingNames = state.items.map((c) => c.name).toSet();
+    final now = DateTime.now();
+    var order = state.items.length;
+    final additions = <FilterCategory>[];
+    for (final p in kCategoryPresets) {
+      if (existingNames.contains(p.name)) continue;
+      additions.add(FilterCategory(
+        id: '${now.microsecondsSinceEpoch + order}',
+        name: p.name,
+        color: p.color,
+        youtubeCategoryIds: const [],
+        keywords: p.keywords,
+        topics: p.topics,
+        enabled: false,
+        order: order++,
+        createdAt: now,
+        updatedAt: now,
+      ));
+    }
+    if (additions.isEmpty) return 0;
+    state = state.copyWith(items: _sorted([...state.items, ...additions]));
+    await _persist();
+    return additions.length;
+  }
+
   Future<void> remove(String id) async {
     state = state.copyWith(
       items: state.items.where((c) => c.id != id).toList(),
@@ -150,22 +180,23 @@ class CategoriesNotifier extends StateNotifier<CategoriesState> {
 
   Future<void> _seedDefaults({bool pushRemote = false}) async {
     final now = DateTime.now();
-    FilterCategory make(String name, int color, List<String> ids, int order) =>
+    // Seed the full fine-grained preset set (disabled), so a new user opens the
+    // app to a rich, granular category list and just toggles what they want.
+    var order = 0;
+    final seeded = [
+      for (final p in kCategoryPresets)
         FilterCategory(
           id: '${now.microsecondsSinceEpoch + order}',
-          name: name,
-          color: color,
-          youtubeCategoryIds: ids,
-          keywords: const [],
-          enabled: true,
-          order: order,
+          name: p.name,
+          color: p.color,
+          youtubeCategoryIds: const [],
+          keywords: p.keywords,
+          topics: p.topics,
+          enabled: false,
+          order: order++,
           createdAt: now,
           updatedAt: now,
-        );
-    final seeded = <FilterCategory>[
-      make('교육/지식', 0xFF3B82F6, ['27', '28'], 0),
-      make('음악', 0xFFEF4444, ['10'], 1),
-      make('게임', 0xFF8B5CF6, ['20'], 2),
+        ),
     ];
     state = state.copyWith(items: seeded);
     await _svc.saveLocal(seeded);

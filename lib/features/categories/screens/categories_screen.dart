@@ -15,7 +15,16 @@ class CategoriesScreen extends ConsumerWidget {
     final notifier = ref.read(categoriesProvider.notifier);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('카테고리')),
+      appBar: AppBar(
+        title: const Text('카테고리'),
+        actions: [
+          IconButton(
+            tooltip: '추천 세분 카테고리 추가',
+            icon: const Icon(Icons.auto_awesome),
+            onPressed: () => _loadPresets(context, notifier),
+          ),
+        ],
+      ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _openEditor(context, ref),
         icon: const Icon(Icons.add),
@@ -49,6 +58,23 @@ class CategoriesScreen extends ConsumerWidget {
                 ),
               ],
             ),
+    );
+  }
+
+  Future<void> _loadPresets(
+    BuildContext context,
+    CategoriesNotifier notifier,
+  ) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final added = await notifier.addPresets();
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(
+          added > 0
+              ? '세분 카테고리 $added개를 추가했습니다. 원하는 항목을 켜보세요.'
+              : '추가할 새 추천 카테고리가 없습니다.',
+        ),
+      ),
     );
   }
 
