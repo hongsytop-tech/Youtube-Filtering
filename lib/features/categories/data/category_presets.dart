@@ -25,6 +25,8 @@ const List<CategoryPreset> kCategoryPresets = [
   CategoryPreset(name: '힙합/랩', color: 0xFFEF4444, topics: ['힙합/랩'], keywords: ['힙합', '랩', 'hiphop', 'rap', '사이퍼']),
   CategoryPreset(name: '재즈', color: 0xFFEF4444, topics: ['재즈'], keywords: ['재즈', 'jazz']),
   CategoryPreset(name: '클래식', color: 0xFFEF4444, topics: ['클래식'], keywords: ['클래식', 'classical', '오케스트라', '피아노']),
+  CategoryPreset(name: '음악방송', color: 0xFFEF4444, topics: ['음악방송', '직캠/팬캠'], keywords: ['뮤직뱅크', '음악중심', '인기가요', '엠카운트다운', '쇼챔피언', '직캠', 'music bank']),
+  CategoryPreset(name: '뮤직비디오', color: 0xFFEF4444, topics: ['뮤직비디오'], keywords: ['mv', '뮤직비디오', 'official video', 'm/v']),
   // 게임
   CategoryPreset(name: 'FPS 게임', color: 0xFF8B5CF6, topics: ['FPS/슈팅'], keywords: ['발로란트', '오버워치', '배그', 'fps', '옵치', '서든']),
   CategoryPreset(name: '롤 (LoL)', color: 0xFF8B5CF6, topics: ['리그오브레전드'], keywords: ['롤', 'lol', '리그오브레전드', '롤드컵']),

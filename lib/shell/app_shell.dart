@@ -49,9 +49,17 @@ class _AppShellState extends ConsumerState<AppShell>
     if (last != null && DateTime.now().difference(last).inMinutes < 10) return;
     await store.setString('last_auto_tag', DateTime.now().toIso8601String());
     try {
-      final res = await SupabaseService.client.functions.invoke('tag-feed');
-      final tagged = (res.data as Map?)?['tagged'];
-      if (mounted && tagged is int && tagged > 0) ref.invalidate(feedProvider);
+      var anyTagged = false;
+      // Drain the backlog: keep going while the server says more rows remain
+      // (e.g. after a classifier-version bump re-tags everything). Capped so a
+      // runaway can't loop forever.
+      for (var i = 0; i < 8; i++) {
+        final res = await SupabaseService.client.functions.invoke('tag-feed');
+        final data = res.data as Map?;
+        if ((data?['tagged'] as int? ?? 0) > 0) anyTagged = true;
+        if (data?['more'] != true) break;
+      }
+      if (mounted && anyTagged) ref.invalidate(feedProvider);
     } catch (_) {
       // best-effort; will retry on the next launch/resume
     }

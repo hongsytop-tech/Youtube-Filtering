@@ -25,12 +25,15 @@ const MODEL = "claude-haiku-4-5";
 const BATCH = 40; // videos per Claude call
 const MAX_PER_RUN = 400; // cap work per invocation to bound latency/cost
 const CONCURRENCY = 4;
+// Bump when the prompt or taxonomy changes; rows tagged by an older version are
+// automatically re-classified on subsequent runs.
+const TAGGER_VERSION = 2;
 
 // Must stay in sync with lib/core/utils/feed_topics.dart (FeedTopics).
 const TOPIC_GROUPS: Record<string, string[]> = {
   "음악": ["K-POP", "팝", "힙합/랩", "R&B/소울", "록/메탈", "인디음악",
     "EDM/일렉트로닉", "재즈", "클래식", "발라드", "트로트", "OST",
-    "커버/버스킹", "뮤직비디오"],
+    "커버/버스킹", "뮤직비디오", "음악방송", "직캠/팬캠"],
   "게임": ["FPS/슈팅", "RPG", "MOBA/AOS", "전략/시뮬레이션", "인디게임", "모바일게임",
     "공포게임", "콘솔/레트로", "e스포츠", "게임리뷰/공략", "마인크래프트", "리그오브레전드"],
   "지식/교육": ["과학", "우주/천문", "수학", "역사", "경제/금융", "주식/투자",
@@ -86,10 +89,24 @@ async function tagBatch(rows: Row[]): Promise<Map<string, string[]>> {
     .map((r, i) => `${i}. 제목: ${r.title} | 채널: ${r.channel_title}`)
     .join("\n");
   const prompt =
-    "다음은 유튜브 영상 목록입니다. 각 영상에 대해 아래 주제 목록에서 가장 잘 맞는 " +
-    "세부 주제를 1~3개 고르세요. 애매하면 더 적게, 아무것도 맞지 않으면 빈 배열로 두세요. " +
-    "반드시 목록에 있는 정확한 주제명만 사용하세요.\n\n" +
-    `[주제 목록]\n${TAXONOMY_TEXT}\n\n[영상]\n${list}`;
+    "당신은 유튜브 영상 분류기입니다. 각 영상을 업로드한 **채널의 종류가 아니라 영상의 " +
+    "실제 내용(주제)** 기준으로 분류하세요.\n\n" +
+    "[규칙]\n" +
+    "- 뉴스/시사 채널이라도 내용이 축구 경기면 '축구', 주식 시황이면 '주식/투자'처럼 " +
+    "실제 소재로 분류합니다.\n" +
+    "- 방송/엔터라도 음악방송(뮤직뱅크·인기가요·엠카운트다운 등)이면 '음악방송', " +
+    "뮤직비디오면 '뮤직비디오', 무대 직캠이면 '직캠/팬캠'으로 구분합니다.\n" +
+    "- 가장 구체적으로 맞는 주제를 1~3개 고르세요. 여러 소재가 겹치면 함께 붙여도 됩니다 " +
+    "(예: K-POP 음악방송 → ['음악방송','K-POP']).\n" +
+    "- 애매하면 더 적게, 목록에 정말 맞는 게 없으면 빈 배열로 두세요.\n" +
+    "- 반드시 아래 목록에 있는 정확한 주제명만 사용하세요.\n\n" +
+    "[예시]\n" +
+    "- '[속보] 손흥민 멀티골 토트넘 역전승' (SBS뉴스) → ['축구']\n" +
+    "- '뮤직뱅크 1위 아이브 I AM 무대' (KBS Kpop) → ['음악방송','K-POP']\n" +
+    "- 'IVE 아이브 - I AM MV' (스타쉽엔터) → ['뮤직비디오','K-POP']\n" +
+    "- '오늘의 증시 코스피 급등 브리핑' (한국경제TV) → ['주식/투자','경제뉴스']\n" +
+    "- '챗GPT로 코딩 자동화하는 법' (개발자유튜버) → ['AI/인공지능','IT/프로그래밍']\n\n" +
+    `[주제 목록]\n${TAXONOMY_TEXT}\n\n[분류할 영상]\n${list}`;
 
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
@@ -178,9 +195,11 @@ Deno.serve(async (req) => {
   const userId = await resolveUserId(req.headers.get("Authorization") ?? "");
   if (!userId) return json({ error: "unauthorized" }, 401);
 
-  // Pull untagged rows (most recent first).
+  // Pull rows that still need (re)tagging: never tagged, or tagged by an older
+  // classifier version. Most recent first.
   const res = await db(
-    `feed_videos?user_id=eq.${userId}&tagged_at=is.null` +
+    `feed_videos?user_id=eq.${userId}` +
+      `&or=(tagger_version.is.null,tagger_version.neq.${TAGGER_VERSION})` +
       `&select=video_id,title,channel_title` +
       `&order=published_at.desc&limit=${MAX_PER_RUN}`,
     { method: "GET" },
@@ -203,6 +222,7 @@ Deno.serve(async (req) => {
       video_id: r.video_id,
       topics: merged.get(r.video_id) ?? [],
       tagged_at: now,
+      tagger_version: TAGGER_VERSION,
     }));
     tagged = updates.filter((u) => u.topics.length > 0).length;
 
@@ -218,5 +238,11 @@ Deno.serve(async (req) => {
     return json({ error: "tag_failed", detail: String(e) }, 500);
   }
 
-  return json({ untagged: rows.length, processed: rows.length, tagged });
+  // `more` tells the client another batch remains (we hit the per-run cap).
+  return json({
+    untagged: rows.length,
+    processed: rows.length,
+    tagged,
+    more: rows.length >= MAX_PER_RUN,
+  });
 });

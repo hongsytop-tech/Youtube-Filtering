@@ -11,7 +11,9 @@ class CategoriesService {
 
   static const _key = 'filter_categories';
   static const _table = 'filter_categories';
-  static const _presetFlag = 'presets_loaded_v1';
+  // Bump the suffix when new presets are added so existing users get them
+  // auto-added (missing-by-name) on the next launch.
+  static const _presetFlag = 'presets_loaded_v2';
 
   /// Whether the one-time fine-grained preset backfill has run on this device.
   bool get presetsLoaded => _local.getString(_presetFlag) == 'true';
