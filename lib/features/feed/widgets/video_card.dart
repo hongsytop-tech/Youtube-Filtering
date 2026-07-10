@@ -72,24 +72,14 @@ class VideoCard extends StatelessWidget {
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
                   const SizedBox(height: 6),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          video.channelTitle,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context).textTheme.bodySmall,
-                        ),
-                      ),
-                      Chip(
-                        label: Text(YoutubeCategories.label(video.categoryId)),
-                        visualDensity: VisualDensity.compact,
-                        materialTapTargetSize:
-                            MaterialTapTargetSize.shrinkWrap,
-                      ),
-                    ],
+                  Text(
+                    video.channelTitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodySmall,
                   ),
+                  const SizedBox(height: 6),
+                  _CategoryLabels(video: video),
                   const SizedBox(height: 2),
                   Text(
                     _relative(video.publishedAt),
@@ -110,5 +100,41 @@ class VideoCard extends StatelessWidget {
     if (d.inHours < 24) return '${d.inHours}시간 전';
     if (d.inDays < 7) return '${d.inDays}일 전';
     return DateFormat('M월 d일').format(t);
+  }
+}
+
+/// Shows the video's fine-grained topic tags (the LLM classification). Falls
+/// back to the coarse YouTube category only when no topic was assigned.
+class _CategoryLabels extends StatelessWidget {
+  const _CategoryLabels({required this.video});
+
+  final FeedVideo video;
+
+  @override
+  Widget build(BuildContext context) {
+    final labels = video.topics.isNotEmpty
+        ? video.topics
+        : [YoutubeCategories.label(video.categoryId)];
+    final scheme = Theme.of(context).colorScheme;
+    return Wrap(
+      spacing: 6,
+      runSpacing: 4,
+      children: [
+        for (final l in labels)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(
+              color: scheme.secondaryContainer,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Text(
+              l,
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: scheme.onSecondaryContainer,
+                  ),
+            ),
+          ),
+      ],
+    );
   }
 }

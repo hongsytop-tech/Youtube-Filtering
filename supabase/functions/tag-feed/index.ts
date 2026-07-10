@@ -27,7 +27,7 @@ const MAX_PER_RUN = 400; // cap work per invocation to bound latency/cost
 const CONCURRENCY = 4;
 // Bump when the prompt or taxonomy changes; rows tagged by an older version are
 // automatically re-classified on subsequent runs.
-const TAGGER_VERSION = 2;
+const TAGGER_VERSION = 3;
 
 // Must stay in sync with lib/core/utils/feed_topics.dart (FeedTopics).
 const TOPIC_GROUPS: Record<string, string[]> = {
@@ -96,12 +96,17 @@ async function tagBatch(rows: Row[]): Promise<Map<string, string[]>> {
     "실제 소재로 분류합니다.\n" +
     "- 방송/엔터라도 음악방송(뮤직뱅크·인기가요·엠카운트다운 등)이면 '음악방송', " +
     "뮤직비디오면 '뮤직비디오', 무대 직캠이면 '직캠/팬캠'으로 구분합니다.\n" +
+    "- **선수·팀 이름이나 경기 용어(8강·PK·해트트릭·리그·MVP 등)가 나오면 " +
+    "'축구/뉴스'가 아니라 해당 스포츠 종목으로 분류하세요.** " +
+    "예: 손흥민·음바페·메시·호날두·EPL·월드컵 → '축구'; " +
+    "오타니·류현진·MLB·KBO → '야구'; 르브론·NBA → '농구'.\n" +
     "- 가장 구체적으로 맞는 주제를 1~3개 고르세요. 여러 소재가 겹치면 함께 붙여도 됩니다 " +
     "(예: K-POP 음악방송 → ['음악방송','K-POP']).\n" +
     "- 애매하면 더 적게, 목록에 정말 맞는 게 없으면 빈 배열로 두세요.\n" +
     "- 반드시 아래 목록에 있는 정확한 주제명만 사용하세요.\n\n" +
     "[예시]\n" +
     "- '[속보] 손흥민 멀티골 토트넘 역전승' (SBS뉴스) → ['축구']\n" +
+    "- 'PK 실축 후 1골 1도움, 메시 따라잡은 음바페의 8강전' (풋볼리뷰) → ['축구']\n" +
     "- '뮤직뱅크 1위 아이브 I AM 무대' (KBS Kpop) → ['음악방송','K-POP']\n" +
     "- 'IVE 아이브 - I AM MV' (스타쉽엔터) → ['뮤직비디오','K-POP']\n" +
     "- '오늘의 증시 코스피 급등 브리핑' (한국경제TV) → ['주식/투자','경제뉴스']\n" +
