@@ -6,10 +6,14 @@ const get = (k) => (typeof browser !== "undefined" ? store.get(k) : new Promise(
 const set = (o) => (typeof browser !== "undefined" ? store.set(o) : new Promise((r) => store.set(o, r)));
 const remove = (k) => (typeof browser !== "undefined" ? store.remove(k) : new Promise((r) => store.remove(k, r)));
 const queryTabs = (q) => (typeof browser !== "undefined" ? browser.tabs.query(q) : new Promise((r) => chrome.tabs.query(q, r)));
-const sendTab = (id, msg) =>
+const execScript = (id, d) =>
   typeof browser !== "undefined"
-    ? browser.tabs.sendMessage(id, msg)
-    : new Promise((r) => chrome.tabs.sendMessage(id, msg, r));
+    ? browser.tabs.executeScript(id, d)
+    : new Promise((res, rej) =>
+        chrome.tabs.executeScript(id, d, (r) =>
+          chrome.runtime.lastError ? rej(chrome.runtime.lastError) : res(r),
+        ),
+      );
 
 const $ = (id) => document.getElementById(id);
 const setStatus = (m) => ($("status").textContent = m);
@@ -80,11 +84,12 @@ async function collectNow() {
   if (!tab || !/youtube\.com/.test(tab.url || "")) {
     return setStatus("먼저 이 탭에서 youtube.com 홈을 여세요.");
   }
-  setStatus("수집 요청함. 화면 하단 알림을 확인하세요.");
+  setStatus("수집 중… 화면 하단 알림을 확인하세요.");
   try {
-    await sendTab(tab.id, { type: "ff_scrape_now" });
-  } catch (_) {
-    setStatus("이 탭에서 확장이 아직 로드되지 않았습니다. 페이지를 새로고침 후 다시 시도하세요.");
+    await execScript(tab.id, { code: `window.__FF_SCROLLS=${scrolls};` });
+    await execScript(tab.id, { file: "collect_inject.js" });
+  } catch (e) {
+    setStatus("주입 실패: " + (e.message || e) + "\n페이지를 새로고침 후 다시 시도하세요.");
   }
 }
 

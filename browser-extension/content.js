@@ -99,10 +99,3 @@ async function scrollAndCollect(scrolls, reason) {
   if (location.pathname !== "/") return;
   scrollAndCollect(s.ffScrolls || 5, "auto");
 })();
-
-// Manual trigger from the popup.
-api.runtime.onMessage.addListener((msg) => {
-  if (msg && msg.type === "ff_scrape_now") {
-    getLocal(["ffScrolls"]).then((s) => scrollAndCollect(s.ffScrolls || 5, "manual"));
-  }
-});
