@@ -129,8 +129,12 @@ class FeedScreen extends ConsumerWidget {
 
   void _hide(BuildContext context, WidgetRef ref, String videoId) {
     ref.read(hiddenVideosProvider.notifier).hide(videoId);
-    ScaffoldMessenger.of(context).showSnackBar(
+    // Replace any pending/visible snackbar so deleting several videos in a row
+    // doesn't queue them up — only the latest shows, for 3s from the last hide.
+    final messenger = ScaffoldMessenger.of(context)..clearSnackBars();
+    messenger.showSnackBar(
       SnackBar(
+        duration: const Duration(seconds: 3),
         content: const Text('영상을 지웠습니다'),
         action: SnackBarAction(
           label: '실행취소',
