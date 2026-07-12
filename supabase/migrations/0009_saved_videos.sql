@@ -18,19 +18,25 @@ create index if not exists saved_videos_user_idx
 
 alter table public.saved_videos enable row level security;
 
+-- drop-then-create so the migration is safe to re-run (create policy is not
+-- idempotent and errors if the policy already exists).
+drop policy if exists "saved_videos_select_own" on public.saved_videos;
 create policy "saved_videos_select_own"
   on public.saved_videos for select
   using (auth.uid() = user_id);
 
+drop policy if exists "saved_videos_insert_own" on public.saved_videos;
 create policy "saved_videos_insert_own"
   on public.saved_videos for insert
   with check (auth.uid() = user_id);
 
+drop policy if exists "saved_videos_update_own" on public.saved_videos;
 create policy "saved_videos_update_own"
   on public.saved_videos for update
   using (auth.uid() = user_id)
   with check (auth.uid() = user_id);
 
+drop policy if exists "saved_videos_delete_own" on public.saved_videos;
 create policy "saved_videos_delete_own"
   on public.saved_videos for delete
   using (auth.uid() = user_id);
