@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../features/auth/screens/login_screen.dart';
 import '../../features/categories/screens/categories_screen.dart';
 import '../../features/channels/screens/channels_screen.dart';
+import '../../features/favorites/screens/favorites_screen.dart';
 import '../../features/feed/screens/feed_screen.dart';
 import '../../features/settings/screens/settings_screen.dart';
 import '../../shell/app_shell.dart';
@@ -13,6 +14,7 @@ import 'auth_refresh_notifier.dart';
 class Routes {
   static const feed = '/feed';
   static const categories = '/categories';
+  static const favorites = '/favorites';
   static const channels = '/channels';
   static const settings = '/settings';
   static const login = '/login';
@@ -51,6 +53,10 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: Routes.categories,
             builder: (_, __) => const CategoriesScreen(),
+          ),
+          GoRoute(
+            path: Routes.favorites,
+            builder: (_, __) => const FavoritesScreen(),
           ),
           GoRoute(
             path: Routes.channels,
