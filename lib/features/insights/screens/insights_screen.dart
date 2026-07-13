@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../feed/providers/video_states_providers.dart';
 import '../../feed/widgets/video_card.dart';
 import '../models/exclusions.dart';
 import '../providers/exclusions_providers.dart';
@@ -305,6 +306,23 @@ class _InsightVideosSheet extends ConsumerWidget {
 
   final InsightQuery query;
 
+  void _hide(BuildContext context, WidgetRef ref, String videoId) {
+    ref.read(hiddenVideosProvider.notifier).hide(videoId);
+    ScaffoldMessenger.of(context)
+      ..clearSnackBars()
+      ..showSnackBar(
+        SnackBar(
+          duration: const Duration(seconds: 3),
+          content: const Text('영상을 지웠습니다 (피드에서도 제외됨)'),
+          action: SnackBarAction(
+            label: '실행취소',
+            onPressed: () =>
+                ref.read(hiddenVideosProvider.notifier).unhide(videoId),
+          ),
+        ),
+      );
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final videos = ref.watch(insightVideosProvider(query));
@@ -336,7 +354,13 @@ class _InsightVideosSheet extends ConsumerWidget {
                 : ListView.builder(
                     padding: const EdgeInsets.only(bottom: 16),
                     itemCount: videos.length,
-                    itemBuilder: (_, i) => VideoCard(video: videos[i]),
+                    itemBuilder: (_, i) {
+                      final v = videos[i];
+                      return VideoCard(
+                        video: v,
+                        onHide: () => _hide(context, ref, v.videoId),
+                      );
+                    },
                   ),
           ),
         ],
