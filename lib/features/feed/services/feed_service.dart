@@ -22,9 +22,13 @@ class FeedService {
     final user = SupabaseService.currentUser;
     if (user == null) return loadCache();
 
+    // Explicit columns: never pull the (large) transcript into the app.
     final rows = await SupabaseService.client
         .from(_table)
-        .select()
+        .select(
+          'video_id,title,channel_id,channel_title,thumbnail_url,'
+          'category_id,published_at,duration_seconds,is_short,topics',
+        )
         .eq('user_id', user.id)
         .order('published_at', ascending: false)
         .limit(1000);

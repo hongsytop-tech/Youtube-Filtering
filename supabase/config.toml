@@ -16,3 +16,11 @@ verify_jwt = false
 # Assigns fine-grained topic tags via Claude; user resolved manually.
 [functions.tag-feed]
 verify_jwt = false
+
+# Stores extension-collected transcripts; user resolved manually.
+[functions.ingest-transcripts]
+verify_jwt = false
+
+# On-demand AI summary of a video; user resolved manually.
+[functions.summarize-video]
+verify_jwt = false

@@ -8,6 +8,7 @@ import '../../../core/utils/youtube_categories.dart';
 import '../../favorites/models/saved_video.dart';
 import '../../favorites/providers/favorites_providers.dart';
 import '../models/feed_video.dart';
+import 'summary_sheet.dart';
 
 /// Compact horizontal video card used by the feed and the favorites screen.
 /// A small left thumbnail keeps rows short so more videos fit on screen.
@@ -32,6 +33,15 @@ class VideoCard extends ConsumerWidget {
   Future<void> _open() async {
     await launchUrl(Uri.parse(video.watchUrl),
         mode: LaunchMode.externalApplication);
+  }
+
+  void _showSummary(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) =>
+          SummarySheet(videoId: video.videoId, title: video.title),
+    );
   }
 
   @override
@@ -133,6 +143,7 @@ class VideoCard extends ConsumerWidget {
                     .toggle(SavedVideo.fromFeedVideo(video)),
                 onTogglePin: onTogglePin,
                 onHide: onHide,
+                onSummary: () => _showSummary(context),
               ),
             ],
           ),
@@ -158,6 +169,7 @@ class _Actions extends StatelessWidget {
     required this.onToggleFavorite,
     required this.onTogglePin,
     required this.onHide,
+    required this.onSummary,
   });
 
   final bool isFav;
@@ -166,6 +178,7 @@ class _Actions extends StatelessWidget {
   final VoidCallback onToggleFavorite;
   final VoidCallback? onTogglePin;
   final VoidCallback? onHide;
+  final VoidCallback onSummary;
 
   @override
   Widget build(BuildContext context) {
@@ -173,6 +186,15 @@ class _Actions extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
+        IconButton(
+          tooltip: 'AI 요약',
+          iconSize: 20,
+          visualDensity: VisualDensity.compact,
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints(minWidth: 34, minHeight: 34),
+          icon: const Icon(Icons.auto_awesome_outlined),
+          onPressed: onSummary,
+        ),
         if (showFavorite)
           IconButton(
             tooltip: isFav ? '즐겨찾기 해제' : '즐겨찾기',
