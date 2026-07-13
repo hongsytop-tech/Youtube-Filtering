@@ -55,32 +55,6 @@ async function upload(videos) {
   return d;
 }
 
-async function uploadTranscripts(items) {
-  const { ffCfg: cfg, ffSession: session } = await get(["ffCfg", "ffSession"]);
-  if (!cfg || !session) return { error: "설정/로그인이 필요합니다." };
-  if (!items || !items.length) return { received: 0, updated: 0 };
-
-  const call = (tok) =>
-    fetch(`${cfg.url}/functions/v1/ingest-transcripts`, {
-      method: "POST",
-      headers: {
-        apikey: cfg.key,
-        Authorization: `Bearer ${tok}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ items }),
-    });
-
-  let res = await call(session.access_token);
-  if (res.status === 401) {
-    const n = await refresh(cfg, session);
-    res = await call(n.access_token);
-  }
-  const d = await res.json().catch(() => ({}));
-  if (!res.ok) return { error: d.detail || d.error || "자막 업로드 실패" };
-  return d;
-}
-
 function badge(n) {
   try {
     api.browserAction.setBadgeBackgroundColor({ color: "#E01E1E" });
@@ -102,31 +76,6 @@ api.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       })
       .catch((e) => {
         set({ ffLastResult: { error: String(e), ts: Date.now() } });
-        sendResponse({ error: String(e) });
-      });
-    return true; // async response
-  }
-  if (msg && msg.type === "ff_transcripts") {
-    uploadTranscripts(msg.items)
-      .then((r) => {
-        set({
-          ffLastResult: {
-            transcript: msg.diag || {},
-            uploaded: r.updated || 0,
-            error: r.error,
-            ts: Date.now(),
-          },
-        });
-        sendResponse(r);
-      })
-      .catch((e) => {
-        set({
-          ffLastResult: {
-            transcript: msg.diag || {},
-            error: String(e),
-            ts: Date.now(),
-          },
-        });
         sendResponse({ error: String(e) });
       });
     return true; // async response

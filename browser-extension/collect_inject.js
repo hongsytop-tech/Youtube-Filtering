@@ -56,111 +56,6 @@
     return [...map.entries()].map(([id, short]) => ({ id, short }));
   }
 
-  function ffInnertube() {
-    const html = document.documentElement.innerHTML;
-    const k = html.match(/"INNERTUBE_API_KEY":"([^"]+)"/);
-    const v =
-      html.match(/"INNERTUBE_CONTEXT_CLIENT_VERSION":"([^"]+)"/) ||
-      html.match(/"clientVersion":"([^"]+)"/);
-    return {
-      key: (k && k[1]) || "AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8",
-      cver: (v && v[1]) || "2.20240101.00.00",
-    };
-  }
-  const FF_MWEB = /(^|\.)m\.youtube\.com$/.test(location.hostname);
-  // The ANDROID innertube client returns caption tracks without a poToken,
-  // where the WEB/MWEB player response omits them.
-  const FF_ANDROID_KEY = "AIzaSyA8eiZmM1FaDVjRy-df2KTyQ_vz_yYM39w";
-  async function ffFetchOne(id, key, cver, diag) {
-    try {
-      const client = {
-        clientName: "ANDROID",
-        clientVersion: "19.09.37",
-        androidSdkVersion: 30,
-        hl: "ko",
-        gl: "KR",
-      };
-      // Same-origin (relative) to avoid cross-origin/CORB on m.youtube.com.
-      const res = await fetch(
-        `/youtubei/v1/player?key=${FF_ANDROID_KEY}&prettyPrint=false`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({
-            context: { client },
-            videoId: id,
-            params: "8AEB",
-          }),
-        },
-      );
-      if (!res.ok) {
-        diag.playerErr = (diag.playerErr || 0) + 1;
-        diag.lastErr = "player " + res.status;
-        return null;
-      }
-      diag.playerOk++;
-      const data = await res.json();
-      const tracks =
-        data?.captions?.playerCaptionsTracklistRenderer?.captionTracks;
-      if (!tracks || !tracks.length) return null;
-      diag.hadTracks++;
-      const pick =
-        tracks.find((t) => t.languageCode === "ko") ||
-        tracks.find((t) => t.languageCode === "en") ||
-        tracks[0];
-      let url = pick && pick.baseUrl;
-      if (!url) return null;
-      url += (url.includes("?") ? "&" : "?") + "fmt=json3";
-      const cap = await fetch(url, { credentials: "include" });
-      if (!cap.ok) {
-        diag.capErr = (diag.capErr || 0) + 1;
-        diag.lastErr = "caption " + cap.status;
-        return null;
-      }
-      const cj = await cap.json();
-      let text = (cj.events || [])
-        .map((e) => (e.segs || []).map((s) => s.utf8 || "").join(""))
-        .join(" ")
-        .replace(/\s+/g, " ")
-        .trim();
-      if (text.length > 20000) text = text.slice(0, 20000);
-      if (text) {
-        diag.gotText++;
-        return text;
-      }
-      return null;
-    } catch (e) {
-      diag.threw = (diag.threw || 0) + 1;
-      diag.lastErr = String(e).slice(0, 60);
-      return null;
-    }
-  }
-  async function ffCollectTranscripts(vids, cap) {
-    const { key, cver } = ffInnertube();
-    const ids = vids.filter((v) => !v.short).slice(0, cap).map((v) => v.id);
-    const diag = {
-      mweb: FF_MWEB ? 1 : 0,
-      keyFound: /^AIza/.test(key) ? 1 : 0,
-      attempted: ids.length,
-      playerOk: 0,
-      hadTracks: 0,
-      gotText: 0,
-    };
-    const out = [];
-    const CONC = 4;
-    for (let i = 0; i < ids.length; i += CONC) {
-      const batch = ids.slice(i, i + CONC);
-      const texts = await Promise.all(
-        batch.map((id) => ffFetchOne(id, key, cver, diag)),
-      );
-      batch.forEach((id, j) => {
-        if (texts[j]) out.push({ id, transcript: texts[j] });
-      });
-    }
-    return { items: out, diag };
-  }
-
   toast("피드필터: 수집 중…");
   const y0 = window.scrollY;
   for (let i = 0; i < scrolls; i++) {
@@ -171,20 +66,8 @@
   const r = await send({ type: "ff_collect", videos });
   toast(
     r && !r.error
-      ? `피드필터: ${r.inserted}개 저장 완료 (자막 수집 중…)`
+      ? `피드필터: ${r.inserted}개 저장 완료 (앱 피드 새로고침)`
       : `피드필터: ${(r && r.error) || "업로드 실패"}`,
   );
-  try {
-    const { items: ts, diag } = await ffCollectTranscripts(videos, 40);
-    // Always report (even 0) so the popup shows a diagnostic and Invocations
-    // records the call.
-    await send({ type: "ff_transcripts", items: ts, diag });
-    toast(
-      `자막 진단: 시도 ${diag.attempted} / 플레이어 ${diag.playerOk} / ` +
-        `트랙 ${diag.hadTracks} / 텍스트 ${diag.gotText}`,
-    );
-  } catch (e) {
-    toast("자막 오류: " + String(e).slice(0, 60));
-  }
   window.scrollTo(0, y0);
 })();

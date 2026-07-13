@@ -32,17 +32,6 @@ async function getCfg() {
 
 function showResult(r) {
   if (!r) return;
-  if (r.transcript) {
-    const d = r.transcript;
-    let msg =
-      `자막: 시도 ${d.attempted ?? 0} / 플레이어 ${d.playerOk ?? 0} / ` +
-      `트랙 ${d.hadTracks ?? 0} / 텍스트 ${d.gotText ?? 0} / 저장 ${r.uploaded ?? 0}`;
-    if (d.mweb) msg += " (모바일)";
-    if (r.error) msg += " · 오류: " + r.error;
-    if (d.lastErr) msg += " · " + d.lastErr;
-    setStatus(msg);
-    return;
-  }
   if (r.error) {
     setStatus("수집 실패: " + r.error);
   } else {
