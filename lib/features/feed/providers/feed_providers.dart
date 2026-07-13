@@ -2,6 +2,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/providers/core_providers.dart';
 import '../../categories/providers/categories_providers.dart';
+import '../../insights/models/exclusions.dart';
+import '../../insights/providers/exclusions_providers.dart';
 import '../models/feed_video.dart';
 import '../services/feed_service.dart';
 import 'feed_prefs.dart';
@@ -26,8 +28,9 @@ final filteredFeedProvider = Provider.autoDispose<AsyncValue<List<FeedVideo>>>(
     final selected = ref.watch(activeFilterTopicsProvider);
     final includeShorts = ref.watch(includeShortsProvider);
     final hidden = ref.watch(hiddenVideosProvider);
+    final excl = ref.watch(exclusionsProvider);
     return feed.whenData(
-      (videos) => _applyFilter(videos, selected, includeShorts, hidden),
+      (videos) => _applyFilter(videos, selected, includeShorts, hidden, excl),
     );
   },
 );
@@ -39,10 +42,12 @@ final presentTopicsProvider = Provider.autoDispose<Set<String>>((ref) {
   final videos = ref.watch(feedProvider).asData?.value ?? const <FeedVideo>[];
   final includeShorts = ref.watch(includeShortsProvider);
   final hidden = ref.watch(hiddenVideosProvider);
+  final excl = ref.watch(exclusionsProvider);
   final out = <String>{};
   for (final v in videos) {
     if (hidden.contains(v.videoId)) continue;
     if (!includeShorts && v.isShort) continue;
+    if (excl.matches(v)) continue;
     out.addAll(v.topics);
   }
   return out;
@@ -53,11 +58,14 @@ List<FeedVideo> _applyFilter(
   Set<String> selected,
   bool includeShorts,
   Set<String> hidden,
+  Exclusions excl,
 ) {
   var pool = videos.where((v) => !hidden.contains(v.videoId)).toList();
   if (!includeShorts) {
     pool = pool.where((v) => !v.isShort).toList();
   }
+  // Blacklist (channel / topic / keyword) always wins.
+  pool = pool.where((v) => !excl.matches(v)).toList();
   if (selected.isEmpty) return pool;
   return pool.where((v) => v.topics.any(selected.contains)).toList();
 }

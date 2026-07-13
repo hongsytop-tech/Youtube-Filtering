@@ -3,9 +3,9 @@ import 'package:go_router/go_router.dart';
 
 import '../../features/auth/screens/login_screen.dart';
 import '../../features/categories/screens/categories_screen.dart';
-import '../../features/channels/screens/channels_screen.dart';
 import '../../features/favorites/screens/favorites_screen.dart';
 import '../../features/feed/screens/feed_screen.dart';
+import '../../features/insights/screens/insights_screen.dart';
 import '../../features/settings/screens/settings_screen.dart';
 import '../../shell/app_shell.dart';
 import '../supabase/supabase_service.dart';
@@ -15,7 +15,7 @@ class Routes {
   static const feed = '/feed';
   static const categories = '/categories';
   static const favorites = '/favorites';
-  static const channels = '/channels';
+  static const insights = '/insights';
   static const settings = '/settings';
   static const login = '/login';
 }
@@ -59,8 +59,8 @@ final routerProvider = Provider<GoRouter>((ref) {
             builder: (_, __) => const FavoritesScreen(),
           ),
           GoRoute(
-            path: Routes.channels,
-            builder: (_, __) => const ChannelsScreen(),
+            path: Routes.insights,
+            builder: (_, __) => const InsightsScreen(),
           ),
           GoRoute(
             path: Routes.settings,

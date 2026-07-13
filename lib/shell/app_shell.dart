@@ -26,7 +26,7 @@ class _AppShellState extends ConsumerState<AppShell>
     Routes.feed,
     Routes.categories,
     Routes.favorites,
-    Routes.channels,
+    Routes.insights,
     Routes.settings,
   ];
 
@@ -149,9 +149,9 @@ class _AppShellState extends ConsumerState<AppShell>
             label: '즐겨찾기',
           ),
           NavigationDestination(
-            icon: Icon(Icons.subscriptions_outlined),
-            selectedIcon: Icon(Icons.subscriptions),
-            label: '채널',
+            icon: Icon(Icons.insights_outlined),
+            selectedIcon: Icon(Icons.insights),
+            label: '분석',
           ),
           NavigationDestination(
             icon: Icon(Icons.person_outline),
