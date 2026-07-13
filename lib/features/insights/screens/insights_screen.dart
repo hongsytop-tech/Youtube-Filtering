@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../feed/widgets/video_card.dart';
 import '../models/exclusions.dart';
 import '../providers/exclusions_providers.dart';
 import '../providers/insights_providers.dart';
@@ -30,18 +31,21 @@ class InsightsScreen extends ConsumerWidget {
           if (!excl.isEmpty) _ExcludedSection(excl: excl, notifier: notifier),
           _RankSection(
             title: '주제 Top',
+            kind: InsightKind.topic,
             items: insights.topics,
             max: 12,
             onExclude: notifier.excludeTopic,
           ),
           _RankSection(
             title: '채널 Top',
+            kind: InsightKind.channel,
             items: insights.channels,
             max: 12,
             onExclude: notifier.excludeChannel,
           ),
           _RankSection(
             title: '키워드 Top',
+            kind: InsightKind.keyword,
             items: insights.keywords,
             max: 15,
             onExclude: notifier.excludeKeyword,
@@ -57,15 +61,26 @@ class InsightsScreen extends ConsumerWidget {
 class _RankSection extends StatelessWidget {
   const _RankSection({
     required this.title,
+    required this.kind,
     required this.items,
     required this.max,
     required this.onExclude,
   });
 
   final String title;
+  final InsightKind kind;
   final List<MapEntry<String, int>> items;
   final int max;
   final void Function(String) onExclude;
+
+  void _open(BuildContext context, String value) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (_) => _InsightVideosSheet(query: InsightQuery(kind, value)),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -88,6 +103,7 @@ class _RankSection extends StatelessWidget {
               label: e.key,
               count: e.value,
               fraction: top == 0 ? 0 : e.value / top,
+              onTap: () => _open(context, e.key),
               onExclude: () => onExclude(e.key),
             ),
         ],
@@ -101,12 +117,14 @@ class _RankRow extends StatelessWidget {
     required this.label,
     required this.count,
     required this.fraction,
+    required this.onTap,
     required this.onExclude,
   });
 
   final String label;
   final int count;
   final double fraction;
+  final VoidCallback onTap;
   final VoidCallback onExclude;
 
   @override
@@ -117,8 +135,11 @@ class _RankRow extends StatelessWidget {
       child: Row(
         children: [
           Expanded(
-            child: Stack(
-              children: [
+            child: InkWell(
+              onTap: onTap,
+              borderRadius: BorderRadius.circular(6),
+              child: Stack(
+                children: [
                 Container(
                   height: 28,
                   decoration: BoxDecoration(
@@ -154,7 +175,8 @@ class _RankRow extends StatelessWidget {
                     ),
                   ),
                 ),
-              ],
+                ],
+              ),
             ),
           ),
           IconButton(
@@ -273,6 +295,52 @@ class _ManualKeywordState extends State<_ManualKeyword> {
         const SizedBox(width: 8),
         FilledButton(onPressed: _submit, child: const Text('제외')),
       ],
+    );
+  }
+}
+
+/// Lists the videos behind a tapped ranked item.
+class _InsightVideosSheet extends ConsumerWidget {
+  const _InsightVideosSheet({required this.query});
+
+  final InsightQuery query;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final videos = ref.watch(insightVideosProvider(query));
+    final maxH = MediaQuery.of(context).size.height * 0.8;
+    return ConstrainedBox(
+      constraints: BoxConstraints(maxHeight: maxH),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+            child: Text(
+              '${query.value} · ${videos.length}개',
+              style: Theme.of(context)
+                  .textTheme
+                  .titleMedium
+                  ?.copyWith(fontWeight: FontWeight.w700),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          Flexible(
+            child: videos.isEmpty
+                ? const Padding(
+                    padding: EdgeInsets.all(24),
+                    child: Center(child: Text('영상이 없습니다.')),
+                  )
+                : ListView.builder(
+                    padding: const EdgeInsets.only(bottom: 16),
+                    itemCount: videos.length,
+                    itemBuilder: (_, i) => VideoCard(video: videos[i]),
+                  ),
+          ),
+        ],
+      ),
     );
   }
 }

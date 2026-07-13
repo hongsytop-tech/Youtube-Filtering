@@ -6,6 +6,47 @@ import '../../feed/providers/feed_providers.dart';
 import '../../feed/providers/video_states_providers.dart';
 import 'exclusions_providers.dart';
 
+enum InsightKind { topic, channel, keyword }
+
+/// Identifies a ranked item (used to look up its videos).
+class InsightQuery {
+  const InsightQuery(this.kind, this.value);
+  final InsightKind kind;
+  final String value;
+
+  @override
+  bool operator ==(Object other) =>
+      other is InsightQuery && other.kind == kind && other.value == value;
+
+  @override
+  int get hashCode => Object.hash(kind, value);
+}
+
+/// The videos behind a ranked item, over the same visible pool as the insights
+/// (minus hidden / shorts / excluded).
+final insightVideosProvider =
+    Provider.autoDispose.family<List<FeedVideo>, InsightQuery>((ref, q) {
+  final videos = ref.watch(feedProvider).asData?.value ?? const <FeedVideo>[];
+  final includeShorts = ref.watch(includeShortsProvider);
+  final hidden = ref.watch(hiddenVideosProvider);
+  final excl = ref.watch(exclusionsProvider);
+  final needle = q.value.toLowerCase();
+
+  final out = <FeedVideo>[];
+  for (final v in videos) {
+    if (hidden.contains(v.videoId)) continue;
+    if (!includeShorts && v.isShort) continue;
+    if (excl.matches(v)) continue;
+    final bool m = switch (q.kind) {
+      InsightKind.topic => v.topics.contains(q.value),
+      InsightKind.channel => v.channelTitle == q.value,
+      InsightKind.keyword => v.title.toLowerCase().contains(needle),
+    };
+    if (m) out.add(v);
+  }
+  return out;
+});
+
 /// A ranked breakdown of the current feed — "what the algorithm feeds me".
 class FeedInsights {
   const FeedInsights({
