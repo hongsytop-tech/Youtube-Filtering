@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/supabase/supabase_service.dart';
-import '../../../core/utils/feed_topics.dart';
+import '../../categories/models/filter_group.dart';
+import '../../categories/providers/categories_providers.dart';
 import '../providers/feed_prefs.dart';
 import '../providers/feed_providers.dart';
-import '../providers/topic_filter.dart';
 import '../providers/video_states_providers.dart';
 import '../widgets/video_card.dart';
 
@@ -155,30 +155,39 @@ class _TopicBar extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final selected = ref.watch(selectedTopicsProvider);
+    final tree = ref.watch(categoriesProvider);
+    final selected = ref.watch(selectedSubcatsProvider);
     final open = ref.watch(openGroupProvider);
     final present = ref.watch(presentTopicsProvider);
     final scheme = Theme.of(context).colorScheme;
 
-    // Only groups/topics that still have at least one video in the feed.
-    // A selected topic stays visible so it can be toggled off even if empty.
-    List<String> topicsIn(String group) => FeedTopics.groups[group]!
-        .where((t) => present.contains(t) || selected.contains(t))
-        .toList();
-    final visibleGroups = FeedTopics.groups.keys
-        .where((g) => topicsIn(g).isNotEmpty)
-        .toList();
+    // A subcat shows if it's exposed AND still has a video (or is selected,
+    // so it can be toggled off). A group shows if exposed with ≥1 such subcat.
+    bool subVisible(FilterSubcategory s) =>
+        s.exposed &&
+        (selected.contains(s.id) || s.topics.any(present.contains));
+    List<FilterSubcategory> subsOf(FilterGroup g) =>
+        g.subcats.where(subVisible).toList();
 
+    final visibleGroups =
+        tree.where((g) => g.exposed && subsOf(g).isNotEmpty).toList();
     if (visibleGroups.isEmpty) return const SizedBox.shrink();
 
-    final effectiveOpen = visibleGroups.contains(open) ? open : null;
+    FilterGroup? openGroup;
+    for (final g in visibleGroups) {
+      if (g.id == open) {
+        openGroup = g;
+        break;
+      }
+    }
+    final sel = ref.read(selectedSubcatsProvider.notifier);
 
     return Material(
       elevation: 1,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Row 1 — macro groups (only those with videos).
+          // Row 1 — 대분류 (only exposed groups with videos).
           SizedBox(
             height: 52,
             child: ListView(
@@ -191,7 +200,7 @@ class _TopicBar extends ConsumerWidget {
                     label: const Text('전체'),
                     selected: selected.isEmpty,
                     onSelected: (_) {
-                      ref.read(selectedTopicsProvider.notifier).clear();
+                      sel.clear();
                       ref.read(openGroupProvider.notifier).state = null;
                     },
                   ),
@@ -200,53 +209,55 @@ class _TopicBar extends ConsumerWidget {
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 4),
                     child: FilterChip(
-                      label: Text(g),
-                      selected: effectiveOpen == g ||
-                          FeedTopics.groups[g]!.any(selected.contains),
+                      label: Text(g.name),
+                      avatar: CircleAvatar(
+                          backgroundColor: Color(g.color), radius: 6),
+                      selected: openGroup?.id == g.id ||
+                          g.subcats.any((s) => selected.contains(s.id)),
                       onSelected: (_) => ref
                           .read(openGroupProvider.notifier)
-                          .state = effectiveOpen == g ? null : g,
+                          .state = openGroup?.id == g.id ? null : g.id,
                     ),
                   ),
               ],
             ),
           ),
-          // Row 2 — fine topics of the open group (only those with videos).
-          if (effectiveOpen != null)
+          // Row 2 — 소분류 of the open group.
+          if (openGroup != null)
             Container(
               width: double.infinity,
               color: scheme.secondaryContainer.withOpacity(0.25),
               child: SizedBox(
                 height: 48,
-                child: ListView(
-                  scrollDirection: Axis.horizontal,
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 4),
-                      child: FilterChip(
-                        label: Text('$effectiveOpen 전체'),
-                        selected:
-                            topicsIn(effectiveOpen).every(selected.contains),
-                        onSelected: (_) => ref
-                            .read(selectedTopicsProvider.notifier)
-                            .toggleAll(topicsIn(effectiveOpen)),
-                      ),
-                    ),
-                    for (final t in topicsIn(effectiveOpen))
+                child: Builder(builder: (_) {
+                  final subs = subsOf(openGroup);
+                  final ids = subs.map((s) => s.id).toList();
+                  final allSel = ids.every(selected.contains);
+                  return ListView(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 8, vertical: 6),
+                    children: [
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 4),
                         child: FilterChip(
-                          label: Text(t),
-                          selected: selected.contains(t),
-                          onSelected: (_) => ref
-                              .read(selectedTopicsProvider.notifier)
-                              .toggle(t),
+                          label: Text('${openGroup.name} 전체'),
+                          selected: allSel,
+                          onSelected: (_) => sel.setMany(ids, !allSel),
                         ),
                       ),
-                  ],
-                ),
+                      for (final s in subs)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          child: FilterChip(
+                            label: Text(s.name),
+                            selected: selected.contains(s.id),
+                            onSelected: (_) => sel.toggle(s.id),
+                          ),
+                        ),
+                    ],
+                  );
+                }),
               ),
             ),
         ],

@@ -1,10 +1,10 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/providers/core_providers.dart';
+import '../../categories/providers/categories_providers.dart';
 import '../models/feed_video.dart';
 import '../services/feed_service.dart';
 import 'feed_prefs.dart';
-import 'topic_filter.dart';
 import 'video_states_providers.dart';
 
 final feedServiceProvider = Provider<FeedService>(
@@ -23,7 +23,7 @@ final feedProvider = FutureProvider.autoDispose<List<FeedVideo>>(
 final filteredFeedProvider = Provider.autoDispose<AsyncValue<List<FeedVideo>>>(
   (ref) {
     final feed = ref.watch(feedProvider);
-    final selected = ref.watch(selectedTopicsProvider);
+    final selected = ref.watch(activeFilterTopicsProvider);
     final includeShorts = ref.watch(includeShortsProvider);
     final hidden = ref.watch(hiddenVideosProvider);
     return feed.whenData(

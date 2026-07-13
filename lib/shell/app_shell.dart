@@ -24,6 +24,7 @@ class _AppShellState extends ConsumerState<AppShell>
 
   static const _tabs = <String>[
     Routes.feed,
+    Routes.categories,
     Routes.favorites,
     Routes.channels,
     Routes.settings,
@@ -136,6 +137,11 @@ class _AppShellState extends ConsumerState<AppShell>
             icon: Icon(Icons.dynamic_feed_outlined),
             selectedIcon: Icon(Icons.dynamic_feed),
             label: '피드',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.category_outlined),
+            selectedIcon: Icon(Icons.category),
+            label: '카테고리',
           ),
           NavigationDestination(
             icon: Icon(Icons.star_border),
