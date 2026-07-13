@@ -68,19 +68,30 @@
     };
   }
   const FF_MWEB = /(^|\.)m\.youtube\.com$/.test(location.hostname);
+  // The ANDROID innertube client returns caption tracks without a poToken,
+  // where the WEB/MWEB player response omits them.
+  const FF_ANDROID_KEY = "AIzaSyA8eiZmM1FaDVjRy-df2KTyQ_vz_yYM39w";
   async function ffFetchOne(id, key, cver, diag) {
     try {
-      const client = FF_MWEB
-        ? { clientName: "MWEB", clientVersion: cver, hl: "ko", gl: "KR" }
-        : { clientName: "WEB", clientVersion: cver, hl: "ko", gl: "KR" };
+      const client = {
+        clientName: "ANDROID",
+        clientVersion: "19.09.37",
+        androidSdkVersion: 30,
+        hl: "ko",
+        gl: "KR",
+      };
       // Same-origin (relative) to avoid cross-origin/CORB on m.youtube.com.
       const res = await fetch(
-        `/youtubei/v1/player?key=${key}&prettyPrint=false`,
+        `/youtubei/v1/player?key=${FF_ANDROID_KEY}&prettyPrint=false`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           credentials: "include",
-          body: JSON.stringify({ context: { client }, videoId: id }),
+          body: JSON.stringify({
+            context: { client },
+            videoId: id,
+            params: "8AEB",
+          }),
         },
       );
       if (!res.ok) {
