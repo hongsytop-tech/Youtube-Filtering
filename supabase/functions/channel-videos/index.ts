@@ -62,6 +62,14 @@ function ytGet(token: string, path: string): Promise<Response> {
   });
 }
 
+function durationSeconds(iso: string): number {
+  const m = iso.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
+  if (!m) return 0;
+  return (+(m[1] ?? 0)) * 3600 + (+(m[2] ?? 0)) * 60 + (+(m[3] ?? 0));
+}
+
+const SHORTS_MAX_SECONDS = 60; // <=60s is treated as a Short and excluded
+
 // Resolve the input to {channelId, uploads playlist id, title}.
 async function resolveChannel(token: string, input: string): Promise<
   { id: string; uploads: string; title: string } | null
@@ -143,7 +151,8 @@ Deno.serve(async (req) => {
   }
   const input = String(body.channel ?? "").trim();
   if (!input) return json({ error: "no_channel" }, 400);
-  const max = Math.max(1, Math.min(50, Number(body.max) || 30));
+  // Target count of non-Short videos to return (50 / 100 / 150 ...).
+  const max = Math.max(1, Math.min(300, Number(body.max) || 50));
 
   const tokRes = await db(
     `google_tokens?user_id=eq.${userId}&select=refresh_token`,
@@ -161,29 +170,68 @@ Deno.serve(async (req) => {
     return json({ error: "channel_not_found", detail: "채널을 찾지 못했습니다." }, 404);
   }
 
-  const plRes = await ytGet(
-    token,
-    `playlistItems?part=snippet&maxResults=${max}&playlistId=${ch.uploads}`,
-  );
-  if (!plRes.ok) {
-    return json({ error: "list_failed", detail: await plRes.text() }, 500);
-  }
-  const items = (await plRes.json())?.items ?? [];
-  const videos = items
-    .map((it: any) => {
+  // Page through the uploads (newest first), dropping Shorts (<=60s), until we
+  // have `max` regular videos or run out (bounded page count).
+  const videos: unknown[] = [];
+  let pageToken = "";
+  let pages = 0;
+  const MAX_PAGES = 8; // 8 * 50 = up to 400 uploads scanned
+  while (videos.length < max && pages < MAX_PAGES) {
+    pages++;
+    const q = `playlistItems?part=snippet&maxResults=50&playlistId=${ch.uploads}` +
+      (pageToken ? `&pageToken=${pageToken}` : "");
+    const plRes = await ytGet(token, q);
+    if (!plRes.ok) {
+      if (videos.length === 0) {
+        return json({ error: "list_failed", detail: await plRes.text() }, 500);
+      }
+      break;
+    }
+    const data = await plRes.json();
+    const items = data.items ?? [];
+    const ids = items
+      .map((it: any) => it.snippet?.resourceId?.videoId)
+      .filter(Boolean);
+
+    // Durations to detect Shorts.
+    const durById = new Map<string, number>();
+    if (ids.length > 0) {
+      const dRes = await ytGet(
+        token,
+        `videos?part=contentDetails&maxResults=50&id=${ids.join(",")}`,
+      );
+      if (dRes.ok) {
+        for (const v of (await dRes.json()).items ?? []) {
+          durById.set(v.id, durationSeconds(v.contentDetails?.duration ?? "PT0S"));
+        }
+      }
+    }
+
+    for (const it of items) {
       const s = it.snippet ?? {};
-      const th = s.thumbnails ?? {};
       const vid = s.resourceId?.videoId;
-      if (!vid) return null;
-      return {
+      if (!vid) continue;
+      const secs = durById.get(vid) ?? 0;
+      if (secs > 0 && secs <= SHORTS_MAX_SECONDS) continue; // Short
+      const th = s.thumbnails ?? {};
+      videos.push({
         videoId: vid,
         title: s.title ?? "",
         thumbnailUrl: th.medium?.url ?? th.high?.url ?? th.default?.url ?? "",
         publishedAt: s.publishedAt ?? null,
         channelTitle: ch.title,
-      };
-    })
-    .filter(Boolean);
+        durationSeconds: secs,
+      });
+      if (videos.length >= max) break;
+    }
 
-  return json({ channelId: ch.id, channelTitle: ch.title, videos });
+    pageToken = data.nextPageToken ?? "";
+    if (!pageToken) break;
+  }
+
+  return json({
+    channelId: ch.id,
+    channelTitle: ch.title,
+    videos: videos.slice(0, max),
+  });
 });

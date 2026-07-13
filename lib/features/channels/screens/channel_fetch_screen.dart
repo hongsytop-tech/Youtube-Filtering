@@ -51,6 +51,7 @@ class ChannelFetchScreen extends ConsumerStatefulWidget {
 
 class _ChannelFetchScreenState extends ConsumerState<ChannelFetchScreen> {
   final _input = TextEditingController();
+  int _count = 50;
   List<_ChannelVideo> _videos = [];
   final Set<String> _selected = {};
   String? _channelTitle;
@@ -81,7 +82,7 @@ class _ChannelFetchScreenState extends ConsumerState<ChannelFetchScreen> {
     try {
       final res = await SupabaseService.client.functions.invoke(
         'channel-videos',
-        body: {'channel': channel, 'max': 50},
+        body: {'channel': channel, 'max': _count},
       );
       final data = res.data as Map?;
       final list = (data?['videos'] as List?) ?? const [];
@@ -146,24 +147,37 @@ class _ChannelFetchScreenState extends ConsumerState<ChannelFetchScreen> {
       body: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
+            padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
+            child: TextField(
+              controller: _input,
+              autocorrect: false,
+              enableSuggestions: false,
+              textInputAction: TextInputAction.search,
+              onSubmitted: (_) => _fetch(),
+              decoration: const InputDecoration(
+                hintText: '채널 URL / @핸들 / 채널ID',
+                isDense: true,
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
             child: Row(
               children: [
-                Expanded(
-                  child: TextField(
-                    controller: _input,
-                    autocorrect: false,
-                    enableSuggestions: false,
-                    textInputAction: TextInputAction.search,
-                    onSubmitted: (_) => _fetch(),
-                    decoration: const InputDecoration(
-                      hintText: '채널 URL / @핸들 / 채널ID',
-                      isDense: true,
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                ),
+                const Text('개수'),
                 const SizedBox(width: 8),
+                DropdownButton<int>(
+                  value: _count,
+                  onChanged: (v) => setState(() => _count = v ?? 50),
+                  items: const [
+                    DropdownMenuItem(value: 50, child: Text('50개')),
+                    DropdownMenuItem(value: 100, child: Text('100개')),
+                    DropdownMenuItem(value: 150, child: Text('150개')),
+                    DropdownMenuItem(value: 200, child: Text('200개')),
+                  ],
+                ),
+                const Spacer(),
                 FilledButton(
                   onPressed: _loading ? null : _fetch,
                   child: _loading
