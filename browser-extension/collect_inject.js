@@ -67,22 +67,33 @@
       cver: (v && v[1]) || "2.20240101.00.00",
     };
   }
-  async function ffFetchTranscript(id, key, cver) {
+  const FF_MWEB = /(^|\.)m\.youtube\.com$/.test(location.hostname);
+  async function ffFetchOne(id, key, cver, diag) {
     try {
-      const res = await fetch(`/youtubei/v1/player?key=${key}&prettyPrint=false`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({
-          context: { client: { clientName: "WEB", clientVersion: cver, hl: "ko" } },
-          videoId: id,
-        }),
-      });
-      if (!res.ok) return null;
+      const client = FF_MWEB
+        ? { clientName: "MWEB", clientVersion: cver, hl: "ko", gl: "KR" }
+        : { clientName: "WEB", clientVersion: cver, hl: "ko", gl: "KR" };
+      // Same-origin (relative) to avoid cross-origin/CORB on m.youtube.com.
+      const res = await fetch(
+        `/youtubei/v1/player?key=${key}&prettyPrint=false`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ context: { client }, videoId: id }),
+        },
+      );
+      if (!res.ok) {
+        diag.playerErr = (diag.playerErr || 0) + 1;
+        diag.lastErr = "player " + res.status;
+        return null;
+      }
+      diag.playerOk++;
       const data = await res.json();
       const tracks =
         data?.captions?.playerCaptionsTracklistRenderer?.captionTracks;
       if (!tracks || !tracks.length) return null;
+      diag.hadTracks++;
       const pick =
         tracks.find((t) => t.languageCode === "ko") ||
         tracks.find((t) => t.languageCode === "en") ||
@@ -91,7 +102,11 @@
       if (!url) return null;
       url += (url.includes("?") ? "&" : "?") + "fmt=json3";
       const cap = await fetch(url, { credentials: "include" });
-      if (!cap.ok) return null;
+      if (!cap.ok) {
+        diag.capErr = (diag.capErr || 0) + 1;
+        diag.lastErr = "caption " + cap.status;
+        return null;
+      }
       const cj = await cap.json();
       let text = (cj.events || [])
         .map((e) => (e.segs || []).map((s) => s.utf8 || "").join(""))
@@ -99,26 +114,40 @@
         .replace(/\s+/g, " ")
         .trim();
       if (text.length > 20000) text = text.slice(0, 20000);
-      return text || null;
-    } catch (_) {
+      if (text) {
+        diag.gotText++;
+        return text;
+      }
+      return null;
+    } catch (e) {
+      diag.threw = (diag.threw || 0) + 1;
+      diag.lastErr = String(e).slice(0, 60);
       return null;
     }
   }
   async function ffCollectTranscripts(vids, cap) {
     const { key, cver } = ffInnertube();
     const ids = vids.filter((v) => !v.short).slice(0, cap).map((v) => v.id);
+    const diag = {
+      mweb: FF_MWEB ? 1 : 0,
+      keyFound: /^AIza/.test(key) ? 1 : 0,
+      attempted: ids.length,
+      playerOk: 0,
+      hadTracks: 0,
+      gotText: 0,
+    };
     const out = [];
     const CONC = 4;
     for (let i = 0; i < ids.length; i += CONC) {
       const batch = ids.slice(i, i + CONC);
       const texts = await Promise.all(
-        batch.map((id) => ffFetchTranscript(id, key, cver)),
+        batch.map((id) => ffFetchOne(id, key, cver, diag)),
       );
       batch.forEach((id, j) => {
         if (texts[j]) out.push({ id, transcript: texts[j] });
       });
     }
-    return out;
+    return { items: out, diag };
   }
 
   toast("피드필터: 수집 중…");
@@ -135,11 +164,16 @@
       : `피드필터: ${(r && r.error) || "업로드 실패"}`,
   );
   try {
-    const ts = await ffCollectTranscripts(videos, 40);
-    if (ts.length) {
-      await send({ type: "ff_transcripts", items: ts });
-      toast(`피드필터: 자막 ${ts.length}개 수집 완료`);
-    }
-  } catch (_) {}
+    const { items: ts, diag } = await ffCollectTranscripts(videos, 40);
+    // Always report (even 0) so the popup shows a diagnostic and Invocations
+    // records the call.
+    await send({ type: "ff_transcripts", items: ts, diag });
+    toast(
+      `자막 진단: 시도 ${diag.attempted} / 플레이어 ${diag.playerOk} / ` +
+        `트랙 ${diag.hadTracks} / 텍스트 ${diag.gotText}`,
+    );
+  } catch (e) {
+    toast("자막 오류: " + String(e).slice(0, 60));
+  }
   window.scrollTo(0, y0);
 })();

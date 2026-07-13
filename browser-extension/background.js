@@ -108,8 +108,27 @@ api.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   }
   if (msg && msg.type === "ff_transcripts") {
     uploadTranscripts(msg.items)
-      .then((r) => sendResponse(r))
-      .catch((e) => sendResponse({ error: String(e) }));
+      .then((r) => {
+        set({
+          ffLastResult: {
+            transcript: msg.diag || {},
+            uploaded: r.updated || 0,
+            error: r.error,
+            ts: Date.now(),
+          },
+        });
+        sendResponse(r);
+      })
+      .catch((e) => {
+        set({
+          ffLastResult: {
+            transcript: msg.diag || {},
+            error: String(e),
+            ts: Date.now(),
+          },
+        });
+        sendResponse({ error: String(e) });
+      });
     return true; // async response
   }
 });
