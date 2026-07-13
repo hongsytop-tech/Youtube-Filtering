@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../features/auth/screens/login_screen.dart';
 import '../../features/categories/screens/categories_screen.dart';
+import '../../features/channels/screens/channel_fetch_screen.dart';
 import '../../features/favorites/screens/favorites_screen.dart';
 import '../../features/feed/screens/feed_screen.dart';
 import '../../features/insights/screens/insights_screen.dart';
@@ -16,6 +17,7 @@ class Routes {
   static const categories = '/categories';
   static const favorites = '/favorites';
   static const insights = '/insights';
+  static const channels = '/channels';
   static const settings = '/settings';
   static const login = '/login';
 }
@@ -61,6 +63,10 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: Routes.insights,
             builder: (_, __) => const InsightsScreen(),
+          ),
+          GoRoute(
+            path: Routes.channels,
+            builder: (_, __) => const ChannelFetchScreen(),
           ),
           GoRoute(
             path: Routes.settings,

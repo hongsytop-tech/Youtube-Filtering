@@ -24,10 +24,12 @@ class _AppShellState extends ConsumerState<AppShell>
 
   static const _tabs = <String>[
     Routes.feed,
-    Routes.categories,
     Routes.favorites,
     Routes.insights,
+    Routes.channels,
     Routes.settings,
+    // 카테고리 탭은 숨김 (분석 탭으로 대체). 복원하려면 Routes.categories를
+    // 위 목록과 아래 destinations에 다시 추가하면 됩니다.
   ];
 
   @override
@@ -139,11 +141,6 @@ class _AppShellState extends ConsumerState<AppShell>
             label: '피드',
           ),
           NavigationDestination(
-            icon: Icon(Icons.category_outlined),
-            selectedIcon: Icon(Icons.category),
-            label: '카테고리',
-          ),
-          NavigationDestination(
             icon: Icon(Icons.star_border),
             selectedIcon: Icon(Icons.star),
             label: '즐겨찾기',
@@ -152,6 +149,11 @@ class _AppShellState extends ConsumerState<AppShell>
             icon: Icon(Icons.insights_outlined),
             selectedIcon: Icon(Icons.insights),
             label: '분석',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.video_library_outlined),
+            selectedIcon: Icon(Icons.video_library),
+            label: '채널',
           ),
           NavigationDestination(
             icon: Icon(Icons.person_outline),

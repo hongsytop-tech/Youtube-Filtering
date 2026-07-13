@@ -16,3 +16,7 @@ verify_jwt = false
 # Assigns fine-grained topic tags via Claude; user resolved manually.
 [functions.tag-feed]
 verify_jwt = false
+
+# Returns a specific channel's recent uploads; user resolved manually.
+[functions.channel-videos]
+verify_jwt = false
