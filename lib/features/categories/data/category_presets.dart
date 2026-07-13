@@ -61,3 +61,27 @@ bool presetsAreValid() {
   final all = FeedTopics.all.toSet();
   return kCategoryPresets.every((p) => p.topics.every(all.contains));
 }
+
+/// Colors cycled across the 13 bundle categories (one per macro group).
+const _bundleColors = <int>[
+  0xFF3B82F6, 0xFFEF4444, 0xFF8B5CF6, 0xFF10B981, 0xFFF59E0B, 0xFFEC4899,
+  0xFF06B6D4, 0xFF64748B, 0xFF14B8A6, 0xFF71717A, 0xFFF97316, 0xFF6366F1,
+  0xFFA855F7,
+];
+
+/// "묶음" categories: one per macro group (e.g. "지식/교육 전체"), bundling all
+/// of that group's fine topics. Derived from the taxonomy so they never drift.
+/// Topic-based (not YouTube category id), so a bundle chip stays consistent
+/// with the fine topic shown on each card.
+List<CategoryPreset> bundlePresets() {
+  final groups = FeedTopics.groups.entries.toList();
+  return [
+    for (var i = 0; i < groups.length; i++)
+      CategoryPreset(
+        name: '${groups[i].key} 전체',
+        color: _bundleColors[i % _bundleColors.length],
+        topics: groups[i].value,
+        keywords: const [],
+      ),
+  ];
+}

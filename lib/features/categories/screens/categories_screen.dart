@@ -18,10 +18,32 @@ class CategoriesScreen extends ConsumerWidget {
       appBar: AppBar(
         title: const Text('카테고리'),
         actions: [
-          IconButton(
-            tooltip: '추천 세분 카테고리 추가',
+          PopupMenuButton<String>(
+            tooltip: '카테고리 추가',
             icon: const Icon(Icons.auto_awesome),
-            onPressed: () => _loadPresets(context, notifier),
+            onSelected: (v) => v == 'presets'
+                ? _loadPresets(context, notifier, bundles: false)
+                : _loadPresets(context, notifier, bundles: true),
+            itemBuilder: (_) => const [
+              PopupMenuItem(
+                value: 'presets',
+                child: ListTile(
+                  leading: Icon(Icons.label_outline),
+                  title: Text('추천 세부 카테고리'),
+                  subtitle: Text('재즈·축구·먹방 등 세분'),
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
+              PopupMenuItem(
+                value: 'bundles',
+                child: ListTile(
+                  leading: Icon(Icons.folder_special_outlined),
+                  title: Text('묶음 카테고리'),
+                  subtitle: Text('지식/교육·음악·스포츠 등 그룹 전체'),
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -63,16 +85,18 @@ class CategoriesScreen extends ConsumerWidget {
 
   Future<void> _loadPresets(
     BuildContext context,
-    CategoriesNotifier notifier,
-  ) async {
+    CategoriesNotifier notifier, {
+    required bool bundles,
+  }) async {
     final messenger = ScaffoldMessenger.of(context);
-    final added = await notifier.addPresets();
+    final added = bundles ? await notifier.addBundles() : await notifier.addPresets();
+    final kind = bundles ? '묶음' : '세분';
     messenger.showSnackBar(
       SnackBar(
         content: Text(
           added > 0
-              ? '세분 카테고리 $added개를 추가했습니다. 원하는 항목을 켜보세요.'
-              : '추가할 새 추천 카테고리가 없습니다.',
+              ? '$kind 카테고리 $added개를 추가했습니다. 원하는 항목을 켜보세요.'
+              : '추가할 새 $kind 카테고리가 없습니다.',
         ),
       ),
     );

@@ -171,12 +171,18 @@ class CategoriesNotifier extends StateNotifier<CategoriesState> {
   /// Bulk-add the curated fine-grained presets that aren't present yet (matched
   /// by name). Added disabled so they don't suddenly re-filter the feed — the
   /// user toggles on the ones they want. Returns how many were added.
-  Future<int> addPresets() async {
+  Future<int> addPresets() => _addPresets(kCategoryPresets);
+
+  /// Bulk-add the "묶음" categories (one per macro group). Same opt-in, added
+  /// disabled and matched by name so re-tapping doesn't duplicate.
+  Future<int> addBundles() => _addPresets(bundlePresets());
+
+  Future<int> _addPresets(List<CategoryPreset> presets) async {
     final existingNames = state.items.map((c) => c.name).toSet();
     final now = DateTime.now();
     var order = state.items.length;
     final additions = <FilterCategory>[];
-    for (final p in kCategoryPresets) {
+    for (final p in presets) {
       if (existingNames.contains(p.name)) continue;
       additions.add(FilterCategory(
         id: '${now.microsecondsSinceEpoch + order}',

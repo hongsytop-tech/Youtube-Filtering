@@ -83,13 +83,38 @@ class _CategoryEditorSheetState extends State<CategoryEditorSheet> {
   Widget _topicGroup(MapEntry<String, List<String>> group) {
     final selectedInGroup =
         group.value.where(_selectedTopics.contains).length;
+    final allSelected = selectedInGroup == group.value.length;
     return Theme(
       data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
       child: ExpansionTile(
         tilePadding: EdgeInsets.zero,
         childrenPadding: const EdgeInsets.only(bottom: 8),
-        title: Text(
-          selectedInGroup > 0 ? '${group.key} ($selectedInGroup)' : group.key,
+        title: Row(
+          children: [
+            Expanded(
+              child: Text(
+                selectedInGroup > 0
+                    ? '${group.key} ($selectedInGroup)'
+                    : group.key,
+              ),
+            ),
+            TextButton(
+              style: TextButton.styleFrom(
+                visualDensity: VisualDensity.compact,
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              onPressed: () => setState(() {
+                if (allSelected) {
+                  _selectedTopics.removeAll(group.value);
+                } else {
+                  _selectedTopics.addAll(group.value);
+                }
+              }),
+              child: Text(allSelected ? '전체 해제' : '전체 선택'),
+            ),
+          ],
         ),
         children: [
           Align(
