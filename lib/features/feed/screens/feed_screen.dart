@@ -173,13 +173,15 @@ class _TopicBar extends ConsumerWidget {
         tree.where((g) => g.exposed && subsOf(g).isNotEmpty).toList();
     if (visibleGroups.isEmpty) return const SizedBox.shrink();
 
-    FilterGroup? openGroup;
+    FilterGroup? openGroupTmp;
     for (final g in visibleGroups) {
       if (g.id == open) {
-        openGroup = g;
+        openGroupTmp = g;
         break;
       }
     }
+    // final so it promotes to non-null inside the nested Builder closure.
+    final openGroup = openGroupTmp;
     final sel = ref.read(selectedSubcatsProvider.notifier);
 
     return Material(
