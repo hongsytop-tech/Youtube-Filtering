@@ -2,9 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/supabase/supabase_service.dart';
-import '../../categories/providers/categories_providers.dart';
+import '../../../core/utils/feed_topics.dart';
 import '../providers/feed_prefs.dart';
 import '../providers/feed_providers.dart';
+import '../providers/topic_filter.dart';
 import '../providers/video_states_providers.dart';
 import '../widgets/video_card.dart';
 
@@ -51,7 +52,7 @@ class FeedScreen extends ConsumerWidget {
       ),
       body: Column(
         children: [
-          const _CategoryBar(),
+          const _TopicBar(),
           if (!SupabaseService.isSignedIn) const _DemoBanner(),
           Expanded(
             child: filtered.when(
@@ -146,50 +147,95 @@ class FeedScreen extends ConsumerWidget {
   }
 }
 
-/// Sticky, horizontally-scrollable category selector at the top of the feed.
-class _CategoryBar extends ConsumerWidget {
-  const _CategoryBar();
+/// Sticky, two-level topic selector at the top of the feed. Row 1 = macro
+/// groups; tapping a group reveals its fine topics in row 2. Filtering is by
+/// the LLM's fine topics, so a chip always matches the label on each card.
+class _TopicBar extends ConsumerWidget {
+  const _TopicBar();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final items = ref.watch(visibleCategoriesProvider);
-    final anyEnabled = ref.watch(categoriesProvider).items.any((c) => c.enabled);
-    if (items.isEmpty && !anyEnabled) return const SizedBox.shrink();
+    final selected = ref.watch(selectedTopicsProvider);
+    final open = ref.watch(openGroupProvider);
+    final groups = FeedTopics.groups;
+    final scheme = Theme.of(context).colorScheme;
 
     return Material(
       elevation: 1,
-      child: SizedBox(
-        height: 52,
-        child: ListView(
-          scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-          children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 4),
-              child: FilterChip(
-                label: const Text('전체'),
-                selected: !anyEnabled,
-                onSelected: (_) =>
-                    ref.read(categoriesProvider.notifier).disableAll(),
-              ),
-            ),
-            ...items.map(
-              (c) => Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 4),
-                child: FilterChip(
-                  label: Text(c.name),
-                  selected: c.enabled,
-                  avatar: CircleAvatar(
-                    backgroundColor: Color(c.color),
-                    radius: 6,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Row 1 — macro groups.
+          SizedBox(
+            height: 52,
+            child: ListView(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+              children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  child: FilterChip(
+                    label: const Text('전체'),
+                    selected: selected.isEmpty,
+                    onSelected: (_) {
+                      ref.read(selectedTopicsProvider.notifier).clear();
+                      ref.read(openGroupProvider.notifier).state = null;
+                    },
                   ),
-                  onSelected: (_) =>
-                      ref.read(categoriesProvider.notifier).toggle(c.id),
+                ),
+                for (final g in groups.keys)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    child: FilterChip(
+                      label: Text(g),
+                      selected:
+                          open == g || groups[g]!.any(selected.contains),
+                      onSelected: (_) => ref
+                          .read(openGroupProvider.notifier)
+                          .state = open == g ? null : g,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          // Row 2 — fine topics of the open group.
+          if (open != null && groups[open] != null)
+            Container(
+              width: double.infinity,
+              color: scheme.secondaryContainer.withOpacity(0.25),
+              child: SizedBox(
+                height: 48,
+                child: ListView(
+                  scrollDirection: Axis.horizontal,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      child: FilterChip(
+                        label: Text('$open 전체'),
+                        selected: groups[open]!.every(selected.contains),
+                        onSelected: (_) => ref
+                            .read(selectedTopicsProvider.notifier)
+                            .toggleAll(groups[open]!),
+                      ),
+                    ),
+                    for (final t in groups[open]!)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                        child: FilterChip(
+                          label: Text(t),
+                          selected: selected.contains(t),
+                          onSelected: (_) => ref
+                              .read(selectedTopicsProvider.notifier)
+                              .toggle(t),
+                        ),
+                      ),
+                  ],
                 ),
               ),
             ),
-          ],
-        ),
+        ],
       ),
     );
   }
