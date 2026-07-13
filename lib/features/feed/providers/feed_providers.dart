@@ -32,6 +32,22 @@ final filteredFeedProvider = Provider.autoDispose<AsyncValue<List<FeedVideo>>>(
   },
 );
 
+/// The set of fine topics that still have at least one visible video in the
+/// feed (respecting hidden + the shorts toggle). Used to hide empty groups /
+/// topics from the selector — delete every video of a topic and it disappears.
+final presentTopicsProvider = Provider.autoDispose<Set<String>>((ref) {
+  final videos = ref.watch(feedProvider).asData?.value ?? const <FeedVideo>[];
+  final includeShorts = ref.watch(includeShortsProvider);
+  final hidden = ref.watch(hiddenVideosProvider);
+  final out = <String>{};
+  for (final v in videos) {
+    if (hidden.contains(v.videoId)) continue;
+    if (!includeShorts && v.isShort) continue;
+    out.addAll(v.topics);
+  }
+  return out;
+});
+
 List<FeedVideo> _applyFilter(
   List<FeedVideo> videos,
   Set<String> selected,

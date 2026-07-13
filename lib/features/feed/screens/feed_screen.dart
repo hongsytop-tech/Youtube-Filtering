@@ -157,15 +157,28 @@ class _TopicBar extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final selected = ref.watch(selectedTopicsProvider);
     final open = ref.watch(openGroupProvider);
-    final groups = FeedTopics.groups;
+    final present = ref.watch(presentTopicsProvider);
     final scheme = Theme.of(context).colorScheme;
+
+    // Only groups/topics that still have at least one video in the feed.
+    // A selected topic stays visible so it can be toggled off even if empty.
+    List<String> topicsIn(String group) => FeedTopics.groups[group]!
+        .where((t) => present.contains(t) || selected.contains(t))
+        .toList();
+    final visibleGroups = FeedTopics.groups.keys
+        .where((g) => topicsIn(g).isNotEmpty)
+        .toList();
+
+    if (visibleGroups.isEmpty) return const SizedBox.shrink();
+
+    final effectiveOpen = visibleGroups.contains(open) ? open : null;
 
     return Material(
       elevation: 1,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Row 1 — macro groups.
+          // Row 1 — macro groups (only those with videos).
           SizedBox(
             height: 52,
             child: ListView(
@@ -183,23 +196,23 @@ class _TopicBar extends ConsumerWidget {
                     },
                   ),
                 ),
-                for (final g in groups.keys)
+                for (final g in visibleGroups)
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 4),
                     child: FilterChip(
                       label: Text(g),
-                      selected:
-                          open == g || groups[g]!.any(selected.contains),
+                      selected: effectiveOpen == g ||
+                          FeedTopics.groups[g]!.any(selected.contains),
                       onSelected: (_) => ref
                           .read(openGroupProvider.notifier)
-                          .state = open == g ? null : g,
+                          .state = effectiveOpen == g ? null : g,
                     ),
                   ),
               ],
             ),
           ),
-          // Row 2 — fine topics of the open group.
-          if (open != null && groups[open] != null)
+          // Row 2 — fine topics of the open group (only those with videos).
+          if (effectiveOpen != null)
             Container(
               width: double.infinity,
               color: scheme.secondaryContainer.withOpacity(0.25),
@@ -213,14 +226,15 @@ class _TopicBar extends ConsumerWidget {
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 4),
                       child: FilterChip(
-                        label: Text('$open 전체'),
-                        selected: groups[open]!.every(selected.contains),
+                        label: Text('$effectiveOpen 전체'),
+                        selected:
+                            topicsIn(effectiveOpen).every(selected.contains),
                         onSelected: (_) => ref
                             .read(selectedTopicsProvider.notifier)
-                            .toggleAll(groups[open]!),
+                            .toggleAll(topicsIn(effectiveOpen)),
                       ),
                     ),
-                    for (final t in groups[open]!)
+                    for (final t in topicsIn(effectiveOpen))
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 4),
                         child: FilterChip(
