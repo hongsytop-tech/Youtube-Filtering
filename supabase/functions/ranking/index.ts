@@ -248,7 +248,9 @@ Deno.serve(async (req) => {
 
     if (mode === "shorts") {
       const days = Math.max(1, Math.min(Number(body.days) || 7, 90));
-      const maxDur = Math.max(15, Math.min(Number(body.maxDuration) || 60, 180));
+      // Real Shorts are up to 180s; search.list?videoDuration=short returns
+      // <4min, so keep <=180s (60s dropped almost everything).
+      const maxDur = Math.max(15, Math.min(Number(body.maxDuration) || 180, 180));
       const publishedAfter = new Date(Date.now() - days * 86400000)
         .toISOString()
         .replace(/\.\d+Z$/, "Z");

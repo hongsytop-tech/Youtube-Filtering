@@ -32,6 +32,7 @@ class RankVideo {
   String get videoId => '${j['videoId'] ?? ''}';
   String get title => '${j['title'] ?? ''}';
   String get channelTitle => '${j['channelTitle'] ?? ''}';
+  String get categoryId => '${j['categoryId'] ?? ''}';
   String get thumbnailUrl => '${j['thumbnailUrl'] ?? ''}';
   int get views => (j['viewCount'] as num?)?.toInt() ?? 0;
   int get likes => (j['likeCount'] as num?)?.toInt() ?? 0;
@@ -179,6 +180,9 @@ class _VideoRankingTabState extends ConsumerState<_VideoRankingTab> {
   @override
   Widget build(BuildContext context) {
     final favIds = ref.watch(favoriteIdsProvider);
+    final catName = {
+      for (final c in _categories) c['id'] ?? '': c['title'] ?? '',
+    };
     return Column(
       children: [
         Padding(
@@ -273,6 +277,7 @@ class _VideoRankingTabState extends ConsumerState<_VideoRankingTab> {
                 rank: i + 1,
                 v: v,
                 fav: fav,
+                category: catName[v.categoryId],
                 onFav: () => ref
                     .read(favoritesProvider.notifier)
                     .toggle(v.toSaved()),
@@ -303,11 +308,13 @@ class _VideoRow extends StatelessWidget {
       {required this.rank,
       required this.v,
       required this.fav,
-      required this.onFav});
+      required this.onFav,
+      this.category});
   final int rank;
   final RankVideo v;
   final bool fav;
   final VoidCallback onFav;
+  final String? category;
 
   @override
   Widget build(BuildContext context) {
@@ -347,10 +354,34 @@ class _VideoRow extends StatelessWidget {
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(fontWeight: FontWeight.w600)),
-                    Text(v.channelTitle,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.bodySmall),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(v.channelTitle,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: Theme.of(context).textTheme.bodySmall),
+                        ),
+                        if (category != null && category!.isNotEmpty)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 1),
+                            decoration: BoxDecoration(
+                              color:
+                                  Theme.of(context).colorScheme.secondaryContainer,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(category!,
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .labelSmall
+                                    ?.copyWith(
+                                        color: Theme.of(context)
+                                            .colorScheme
+                                            .onSecondaryContainer)),
+                          ),
+                      ],
+                    ),
                     const SizedBox(height: 2),
                     Text(
                       '👁 ${fmtCount(v.views)}  👍 ${fmtCount(v.likes)}  '
@@ -485,7 +516,16 @@ class _CategoryRankingTabState extends ConsumerState<_CategoryRankingTab> {
                     overflow: TextOverflow.ellipsis,
                   ),
                   isThreeLine: true,
-                  onTap: () => _open('${r['topUrl'] ?? ''}'),
+                  onTap: () => showModalBottomSheet(
+                    context: context,
+                    isScrollControlled: true,
+                    showDragHandle: true,
+                    builder: (_) => _CategoryVideosSheet(
+                      region: _region,
+                      categoryId: '${r['categoryId'] ?? ''}',
+                      categoryName: '${r['categoryName'] ?? ''}',
+                    ),
+                  ),
                 ),
               );
             },
@@ -519,4 +559,105 @@ Widget _countDropdown(int value, ValueChanged<int> onChanged) {
       DropdownMenuItem(value: 200, child: Text('200개')),
     ],
   );
+}
+
+/// Popular videos of one category, ranked — opened from the category ranking.
+class _CategoryVideosSheet extends ConsumerStatefulWidget {
+  const _CategoryVideosSheet({
+    required this.region,
+    required this.categoryId,
+    required this.categoryName,
+  });
+  final String region;
+  final String categoryId;
+  final String categoryName;
+
+  @override
+  ConsumerState<_CategoryVideosSheet> createState() =>
+      _CategoryVideosSheetState();
+}
+
+class _CategoryVideosSheetState extends ConsumerState<_CategoryVideosSheet> {
+  List<RankVideo> _videos = [];
+  bool _loading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _fetch());
+  }
+
+  Future<void> _fetch() async {
+    try {
+      final res = await SupabaseService.client.functions.invoke('ranking',
+          body: {
+            'mode': 'popular',
+            'regionCode': widget.region,
+            'categoryId': widget.categoryId,
+            'max': 50,
+          });
+      final list = (res.data as Map?)?['videos'] as List? ?? const [];
+      setState(() {
+        _videos =
+            list.map((e) => RankVideo(Map<String, dynamic>.from(e))).toList();
+        if (_videos.isEmpty) _error = '결과가 없습니다.';
+      });
+    } catch (e) {
+      setState(() => _error = '가져오기 실패: $e');
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final favIds = ref.watch(favoriteIdsProvider);
+    final maxH = MediaQuery.of(context).size.height * 0.85;
+    return ConstrainedBox(
+      constraints: BoxConstraints(maxHeight: maxH),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+            child: Text('${widget.categoryName} 인기 영상',
+                style: Theme.of(context)
+                    .textTheme
+                    .titleMedium
+                    ?.copyWith(fontWeight: FontWeight.w700)),
+          ),
+          if (_loading)
+            const Padding(
+              padding: EdgeInsets.all(24),
+              child: Center(child: CircularProgressIndicator()),
+            ),
+          if (_error != null)
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Text(_error!,
+                  style:
+                      TextStyle(color: Theme.of(context).colorScheme.error)),
+            ),
+          Flexible(
+            child: ListView.builder(
+              padding: const EdgeInsets.only(bottom: 16),
+              itemCount: _videos.length,
+              itemBuilder: (_, i) {
+                final v = _videos[i];
+                return _VideoRow(
+                  rank: i + 1,
+                  v: v,
+                  fav: favIds.contains(v.videoId),
+                  onFav: () =>
+                      ref.read(favoritesProvider.notifier).toggle(v.toSaved()),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
