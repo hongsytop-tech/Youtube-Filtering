@@ -255,39 +255,58 @@ Deno.serve(async (req) => {
       const publishedAfter = new Date(Date.now() - days * 86400000)
         .toISOString()
         .replace(/\.\d+Z$/, "Z");
-      const ids: string[] = [];
-      const seen = new Set<string>();
-      let pageToken = "";
-      let guard = 0;
-      while (ids.length < max * 2 && guard < 6) {
-        guard++;
-        const p = new URLSearchParams({
-          part: "id",
-          type: "video",
-          videoDuration: "short",
-          order: "viewCount",
-          regionCode: region,
-          maxResults: "50",
-          publishedAfter,
-        });
-        if (categoryId) p.set("videoCategoryId", categoryId);
-        if (pageToken) p.set("pageToken", pageToken);
-        const data = await call(`search?${p}`);
-        for (const it of data.items ?? []) {
-          const vid = it.id?.videoId;
-          if (vid && !seen.has(vid)) {
-            seen.add(vid);
-            ids.push(vid);
+
+      const searchIds = async (after: string | null): Promise<string[]> => {
+        const ids: string[] = [];
+        const seen = new Set<string>();
+        let pageToken = "";
+        let guard = 0;
+        while (ids.length < max * 2 && guard < 6) {
+          guard++;
+          const p = new URLSearchParams({
+            part: "id",
+            type: "video",
+            videoDuration: "short",
+            order: "viewCount",
+            regionCode: region,
+            maxResults: "50",
+          });
+          if (after) p.set("publishedAfter", after);
+          if (categoryId) p.set("videoCategoryId", categoryId);
+          if (pageToken) p.set("pageToken", pageToken);
+          const data = await call(`search?${p}`);
+          for (const it of data.items ?? []) {
+            const vid = it.id?.videoId;
+            if (vid && !seen.has(vid)) {
+              seen.add(vid);
+              ids.push(vid);
+            }
           }
+          pageToken = data.nextPageToken ?? "";
+          if (!pageToken) break;
         }
-        pageToken = data.nextPageToken ?? "";
-        if (!pageToken) break;
+        return ids;
+      };
+
+      let ids = await searchIds(publishedAfter);
+      let fellBack = false;
+      if (ids.length === 0) {
+        // Nothing in the recent window → retry without the date filter.
+        ids = await searchIds(null);
+        fellBack = true;
       }
       const hydrated = await hydrate(call, ids);
       const shorts = hydrated
         .filter((v) => v.durationSeconds > 0 && v.durationSeconds <= maxDur)
         .sort((a, b) => b.viewCount - a.viewCount)
         .slice(0, max);
+      if (shorts.length === 0) {
+        return json({
+          videos: [],
+          detail: `검색 ${ids.length}건 / 후보 ${hydrated.length}건 / ` +
+            `${maxDur}초이하 0건${fellBack ? " (기간무시 재시도)" : ""}`,
+        });
+      }
       return json({ videos: shorts });
     }
 
