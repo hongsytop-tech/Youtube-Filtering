@@ -27,6 +27,7 @@ class _AppShellState extends ConsumerState<AppShell>
     Routes.favorites,
     Routes.insights,
     Routes.channels,
+    Routes.ranking,
     Routes.settings,
     // 카테고리 탭은 숨김 (분석 탭으로 대체). 복원하려면 Routes.categories를
     // 위 목록과 아래 destinations에 다시 추가하면 됩니다.
@@ -154,6 +155,11 @@ class _AppShellState extends ConsumerState<AppShell>
             icon: Icon(Icons.video_library_outlined),
             selectedIcon: Icon(Icons.video_library),
             label: '채널',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.leaderboard_outlined),
+            selectedIcon: Icon(Icons.leaderboard),
+            label: '랭킹',
           ),
           NavigationDestination(
             icon: Icon(Icons.person_outline),

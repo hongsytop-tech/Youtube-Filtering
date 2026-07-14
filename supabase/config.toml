@@ -20,3 +20,7 @@ verify_jwt = false
 # Returns a specific channel's recent uploads; user resolved manually.
 [functions.channel-videos]
 verify_jwt = false
+
+# Region/category popularity rankings (mostPopular / shorts); user resolved manually.
+[functions.ranking]
+verify_jwt = false

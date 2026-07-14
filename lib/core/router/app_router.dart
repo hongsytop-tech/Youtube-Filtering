@@ -7,6 +7,7 @@ import '../../features/channels/screens/channel_fetch_screen.dart';
 import '../../features/favorites/screens/favorites_screen.dart';
 import '../../features/feed/screens/feed_screen.dart';
 import '../../features/insights/screens/insights_screen.dart';
+import '../../features/ranking/screens/ranking_screen.dart';
 import '../../features/settings/screens/settings_screen.dart';
 import '../../shell/app_shell.dart';
 import '../supabase/supabase_service.dart';
@@ -18,6 +19,7 @@ class Routes {
   static const favorites = '/favorites';
   static const insights = '/insights';
   static const channels = '/channels';
+  static const ranking = '/ranking';
   static const settings = '/settings';
   static const login = '/login';
 }
@@ -67,6 +69,10 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: Routes.channels,
             builder: (_, __) => const ChannelFetchScreen(),
+          ),
+          GoRoute(
+            path: Routes.ranking,
+            builder: (_, __) => const RankingScreen(),
           ),
           GoRoute(
             path: Routes.settings,
