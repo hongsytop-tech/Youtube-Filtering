@@ -38,6 +38,8 @@ class RankVideo {
   int get likes => (j['likeCount'] as num?)?.toInt() ?? 0;
   int get comments => (j['commentCount'] as num?)?.toInt() ?? 0;
   int get duration => (j['durationSeconds'] as num?)?.toInt() ?? 0;
+  bool get isShort =>
+      (j['isShort'] as bool?) ?? (duration > 0 && duration <= 60);
   DateTime? get published => DateTime.tryParse('${j['publishedAt'] ?? ''}');
   String get watchUrl => 'https://www.youtube.com/watch?v=$videoId';
 
@@ -356,6 +358,9 @@ class _VideoRow extends StatelessWidget {
                         style: const TextStyle(fontWeight: FontWeight.w600)),
                     Row(
                       children: [
+                        Text(v.isShort ? '🩳 ' : '',
+                            style:
+                                Theme.of(context).textTheme.bodySmall),
                         Expanded(
                           child: Text(v.channelTitle,
                               maxLines: 1,
@@ -579,8 +584,20 @@ class _CategoryVideosSheet extends ConsumerStatefulWidget {
 
 class _CategoryVideosSheetState extends ConsumerState<_CategoryVideosSheet> {
   List<RankVideo> _videos = [];
+  String _filter = 'all'; // all | regular | shorts
   bool _loading = true;
   String? _error;
+
+  List<RankVideo> get _shown {
+    switch (_filter) {
+      case 'shorts':
+        return _videos.where((v) => v.isShort).toList();
+      case 'regular':
+        return _videos.where((v) => !v.isShort).toList();
+      default:
+        return _videos;
+    }
+  }
 
   @override
   void initState() {
@@ -628,6 +645,21 @@ class _CategoryVideosSheetState extends ConsumerState<_CategoryVideosSheet> {
                     .titleMedium
                     ?.copyWith(fontWeight: FontWeight.w700)),
           ),
+          if (_videos.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: SegmentedButton<String>(
+                style: const ButtonStyle(
+                    visualDensity: VisualDensity.compact),
+                segments: const [
+                  ButtonSegment(value: 'all', label: Text('전체')),
+                  ButtonSegment(value: 'regular', label: Text('일반')),
+                  ButtonSegment(value: 'shorts', label: Text('쇼츠')),
+                ],
+                selected: {_filter},
+                onSelectionChanged: (s) => setState(() => _filter = s.first),
+              ),
+            ),
           if (_loading)
             const Padding(
               padding: EdgeInsets.all(24),
@@ -643,9 +675,9 @@ class _CategoryVideosSheetState extends ConsumerState<_CategoryVideosSheet> {
           Flexible(
             child: ListView.builder(
               padding: const EdgeInsets.only(bottom: 16),
-              itemCount: _videos.length,
+              itemCount: _shown.length,
               itemBuilder: (_, i) {
-                final v = _videos[i];
+                final v = _shown[i];
                 return _VideoRow(
                   rank: i + 1,
                   v: v,

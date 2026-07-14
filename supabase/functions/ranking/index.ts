@@ -80,6 +80,7 @@ function parseItems(items: any[]): any[] {
     const st = v.statistics ?? {};
     const cd = v.contentDetails ?? {};
     const th = s.thumbnails ?? {};
+    const secs = durationSeconds(cd.duration ?? "PT0S");
     return {
       videoId: v.id,
       title: s.title ?? "",
@@ -87,7 +88,8 @@ function parseItems(items: any[]): any[] {
       channelTitle: s.channelTitle ?? "",
       categoryId: s.categoryId ?? "",
       publishedAt: s.publishedAt ?? null,
-      durationSeconds: durationSeconds(cd.duration ?? "PT0S"),
+      durationSeconds: secs,
+      isShort: secs > 0 && secs <= 60, // duration heuristic (no official flag)
       viewCount: +(st.viewCount ?? 0),
       likeCount: +(st.likeCount ?? 0),
       commentCount: +(st.commentCount ?? 0),
