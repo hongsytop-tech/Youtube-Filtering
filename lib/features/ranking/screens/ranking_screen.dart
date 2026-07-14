@@ -86,17 +86,21 @@ class _VideoRankingTab extends ConsumerStatefulWidget {
 
 class _VideoRankingTabState extends ConsumerState<_VideoRankingTab> {
   String _region = 'KR';
-  String _source = 'popular'; // popular | shorts
+  // Unified: 전체/일반 use the popular chart (cheap), 쇼츠 uses search.
+  String _mode = 'all'; // all | regular | shorts
+  String? _loadedKind; // 'popular' | 'shorts' — what _videos currently holds
   String _category = ''; // '' = 전체
   int _count = 50;
   int _days = 7;
-  String _type = 'all'; // all | regular | shorts
   List<Map<String, String>> _categories = [];
   List<RankVideo> _videos = [];
   String _sort = 'views';
   bool _desc = true;
   bool _loading = false;
   String? _error;
+
+  String get _neededKind => _mode == 'shorts' ? 'shorts' : 'popular';
+  bool get _stale => _videos.isNotEmpty && _loadedKind != _neededKind;
 
   @override
   void initState() {
@@ -132,19 +136,21 @@ class _VideoRankingTabState extends ConsumerState<_VideoRankingTab> {
       _error = null;
       _videos = [];
     });
+    final kind = _neededKind;
     try {
       final body = {
-        'mode': _source,
+        'mode': kind,
         'regionCode': _region,
         'categoryId': _category,
         'max': _count,
-        if (_source == 'shorts') 'days': _days,
+        if (kind == 'shorts') 'days': _days,
       };
       final res =
           await SupabaseService.client.functions.invoke('ranking', body: body);
       final data = res.data as Map?;
       final list = (data?['videos'] as List?) ?? const [];
       setState(() {
+        _loadedKind = kind;
         _videos = list
             .map((e) => RankVideo(Map<String, dynamic>.from(e)))
             .toList();
@@ -176,13 +182,15 @@ class _VideoRankingTabState extends ConsumerState<_VideoRankingTab> {
       }
     }
 
-    // Safety net: the Shorts source shows only true short videos, regardless
-    // of what the function returned.
+    // The current data must match the selected mode's source; otherwise the
+    // user needs to re-fetch (handled by the stale hint in build).
+    if (_stale) return const [];
     var pool = _videos;
-    if (_source == 'shorts') pool = pool.where((v) => v.isShort).toList();
-    // Client-side type filter (free — same fetched data).
-    if (_type == 'shorts') pool = pool.where((v) => v.isShort).toList();
-    if (_type == 'regular') pool = pool.where((v) => !v.isShort).toList();
+    if (_mode == 'shorts') {
+      pool = pool.where((v) => v.isShort).toList(); // safety net
+    } else if (_mode == 'regular') {
+      pool = pool.where((v) => !v.isShort).toList();
+    }
     final list = [...pool]..sort(cmp);
     if (_desc) return list.reversed.toList();
     return list;
@@ -211,15 +219,16 @@ class _VideoRankingTabState extends ConsumerState<_VideoRankingTab> {
                 style: const ButtonStyle(
                     visualDensity: VisualDensity.compact),
                 segments: const [
-                  ButtonSegment(value: 'popular', label: Text('인기 차트')),
+                  ButtonSegment(value: 'all', label: Text('전체')),
+                  ButtonSegment(value: 'regular', label: Text('일반')),
                   ButtonSegment(value: 'shorts', label: Text('쇼츠')),
                 ],
-                selected: {_source},
-                onSelectionChanged: (s) => setState(() => _source = s.first),
+                selected: {_mode},
+                onSelectionChanged: (s) => setState(() => _mode = s.first),
               ),
               _categoryDropdown(),
               _countDropdown(_count, (v) => setState(() => _count = v)),
-              if (_source == 'shorts')
+              if (_mode == 'shorts')
                 DropdownButton<int>(
                   value: _days,
                   onChanged: (v) => setState(() => _days = v ?? 7),
@@ -241,25 +250,17 @@ class _VideoRankingTabState extends ConsumerState<_VideoRankingTab> {
             ],
           ),
         ),
-        if (_videos.isNotEmpty)
+        if (_stale)
           Padding(
-            padding: const EdgeInsets.fromLTRB(12, 4, 12, 0),
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: SegmentedButton<String>(
-                style: const ButtonStyle(
-                    visualDensity: VisualDensity.compact),
-                segments: const [
-                  ButtonSegment(value: 'all', label: Text('전체')),
-                  ButtonSegment(value: 'regular', label: Text('일반')),
-                  ButtonSegment(value: 'shorts', label: Text('쇼츠')),
-                ],
-                selected: {_type},
-                onSelectionChanged: (s) => setState(() => _type = s.first),
-              ),
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+            child: Text(
+              _mode == 'shorts'
+                  ? '쇼츠는 별도 검색이라 "가져오기"를 눌러 불러오세요.'
+                  : '"가져오기"를 눌러 인기 차트를 불러오세요.',
+              style: TextStyle(color: Theme.of(context).hintColor),
             ),
           ),
-        if (_videos.isNotEmpty)
+        if (_sorted.isNotEmpty)
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12),
             child: Row(
