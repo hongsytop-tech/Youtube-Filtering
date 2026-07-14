@@ -38,9 +38,9 @@ class RankVideo {
   int get likes => (j['likeCount'] as num?)?.toInt() ?? 0;
   int get comments => (j['commentCount'] as num?)?.toInt() ?? 0;
   int get duration => (j['durationSeconds'] as num?)?.toInt() ?? 0;
-  // YouTube Shorts are up to 180s. Classify by duration (no official flag),
-  // computed client-side so it's independent of the function version.
-  bool get isShort => duration > 0 && duration <= 180;
+  // Classify short-form by duration (<=4min); no official Shorts flag exists.
+  // Computed client-side so it's independent of the function version.
+  bool get isShort => duration > 0 && duration <= 240;
   DateTime? get published => DateTime.tryParse('${j['publishedAt'] ?? ''}');
   String get watchUrl => 'https://www.youtube.com/watch?v=$videoId';
 

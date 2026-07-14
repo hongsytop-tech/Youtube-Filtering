@@ -89,7 +89,7 @@ function parseItems(items: any[]): any[] {
       categoryId: s.categoryId ?? "",
       publishedAt: s.publishedAt ?? null,
       durationSeconds: secs,
-      isShort: secs > 0 && secs <= 180, // YouTube Shorts max = 180s (no flag)
+      isShort: secs > 0 && secs <= 240, // short-form heuristic: <=4min (no flag)
       viewCount: +(st.viewCount ?? 0),
       likeCount: +(st.likeCount ?? 0),
       commentCount: +(st.commentCount ?? 0),
@@ -250,9 +250,8 @@ Deno.serve(async (req) => {
 
     if (mode === "shorts") {
       const days = Math.max(1, Math.min(Number(body.days) || 7, 90));
-      // Real Shorts are up to 180s; search.list?videoDuration=short returns
-      // <4min, so keep <=180s (60s dropped almost everything).
-      const maxDur = Math.max(15, Math.min(Number(body.maxDuration) || 180, 180));
+      // Short-form = <=4min (matches search.list?videoDuration=short).
+      const maxDur = Math.max(15, Math.min(Number(body.maxDuration) || 240, 240));
       const publishedAfter = new Date(Date.now() - days * 86400000)
         .toISOString()
         .replace(/\.\d+Z$/, "Z");
