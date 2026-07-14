@@ -38,8 +38,9 @@ class RankVideo {
   int get likes => (j['likeCount'] as num?)?.toInt() ?? 0;
   int get comments => (j['commentCount'] as num?)?.toInt() ?? 0;
   int get duration => (j['durationSeconds'] as num?)?.toInt() ?? 0;
-  bool get isShort =>
-      (j['isShort'] as bool?) ?? (duration > 0 && duration <= 60);
+  // YouTube Shorts are up to 180s. Classify by duration (no official flag),
+  // computed client-side so it's independent of the function version.
+  bool get isShort => duration > 0 && duration <= 180;
   DateTime? get published => DateTime.tryParse('${j['publishedAt'] ?? ''}');
   String get watchUrl => 'https://www.youtube.com/watch?v=$videoId';
 
@@ -174,7 +175,11 @@ class _VideoRankingTabState extends ConsumerState<_VideoRankingTab> {
       }
     }
 
-    final list = [..._videos]..sort(cmp);
+    // Safety net: the Shorts source shows only true short videos (<=180s),
+    // regardless of what the function returned.
+    var pool = _videos;
+    if (_source == 'shorts') pool = pool.where((v) => v.isShort).toList();
+    final list = [...pool]..sort(cmp);
     if (_desc) return list.reversed.toList();
     return list;
   }
