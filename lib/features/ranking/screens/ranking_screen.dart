@@ -90,6 +90,7 @@ class _VideoRankingTabState extends ConsumerState<_VideoRankingTab> {
   String _category = ''; // '' = 전체
   int _count = 50;
   int _days = 7;
+  String _type = 'all'; // all | regular | shorts
   List<Map<String, String>> _categories = [];
   List<RankVideo> _videos = [];
   String _sort = 'views';
@@ -175,10 +176,13 @@ class _VideoRankingTabState extends ConsumerState<_VideoRankingTab> {
       }
     }
 
-    // Safety net: the Shorts source shows only true short videos (<=180s),
-    // regardless of what the function returned.
+    // Safety net: the Shorts source shows only true short videos, regardless
+    // of what the function returned.
     var pool = _videos;
     if (_source == 'shorts') pool = pool.where((v) => v.isShort).toList();
+    // Client-side type filter (free — same fetched data).
+    if (_type == 'shorts') pool = pool.where((v) => v.isShort).toList();
+    if (_type == 'regular') pool = pool.where((v) => !v.isShort).toList();
     final list = [...pool]..sort(cmp);
     if (_desc) return list.reversed.toList();
     return list;
@@ -239,6 +243,24 @@ class _VideoRankingTabState extends ConsumerState<_VideoRankingTab> {
         ),
         if (_videos.isNotEmpty)
           Padding(
+            padding: const EdgeInsets.fromLTRB(12, 4, 12, 0),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: SegmentedButton<String>(
+                style: const ButtonStyle(
+                    visualDensity: VisualDensity.compact),
+                segments: const [
+                  ButtonSegment(value: 'all', label: Text('전체')),
+                  ButtonSegment(value: 'regular', label: Text('일반')),
+                  ButtonSegment(value: 'shorts', label: Text('쇼츠')),
+                ],
+                selected: {_type},
+                onSelectionChanged: (s) => setState(() => _type = s.first),
+              ),
+            ),
+          ),
+        if (_videos.isNotEmpty)
+          Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12),
             child: Row(
               children: [
@@ -263,7 +285,7 @@ class _VideoRankingTabState extends ConsumerState<_VideoRankingTab> {
                   onPressed: () => setState(() => _desc = !_desc),
                 ),
                 const Spacer(),
-                Text('${_videos.length}개',
+                Text('${_sorted.length}개',
                     style: Theme.of(context).textTheme.labelSmall),
               ],
             ),
