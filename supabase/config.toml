@@ -24,3 +24,7 @@ verify_jwt = false
 # Region/category popularity rankings (mostPopular / shorts); user resolved manually.
 [functions.ranking]
 verify_jwt = false
+
+# Returns the user's subscribed channel ids (구독/비구독 split); user resolved manually.
+[functions.subscriptions]
+verify_jwt = false

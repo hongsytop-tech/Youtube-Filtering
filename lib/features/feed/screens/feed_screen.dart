@@ -6,6 +6,7 @@ import '../../categories/models/filter_group.dart';
 import '../../categories/providers/categories_providers.dart';
 import '../providers/feed_prefs.dart';
 import '../providers/feed_providers.dart';
+import '../providers/subscriptions_providers.dart';
 import '../providers/video_states_providers.dart';
 import '../widgets/video_card.dart';
 
@@ -52,6 +53,7 @@ class FeedScreen extends ConsumerWidget {
       ),
       body: Column(
         children: [
+          if (SupabaseService.isSignedIn) const _SourceBar(),
           const _TopicBar(),
           if (!SupabaseService.isSignedIn) const _DemoBanner(),
           Expanded(
@@ -142,6 +144,90 @@ class FeedScreen extends ConsumerWidget {
           onPressed: () =>
               ref.read(hiddenVideosProvider.notifier).unhide(videoId),
         ),
+      ),
+    );
+  }
+}
+
+/// 구독 / 비구독 source split. Filters the feed by whether each video's channel
+/// is in the user's subscription set (fetched via the `subscriptions` function).
+class _SourceBar extends ConsumerWidget {
+  const _SourceBar();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final source = ref.watch(feedSourceProvider);
+    final subs = ref.watch(subscribedChannelsProvider);
+    final needsSubs = source != FeedSource.all;
+
+    return Material(
+      elevation: 1,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(8, 6, 8, 6),
+            child: Row(
+              children: [
+                Expanded(
+                  child: SegmentedButton<FeedSource>(
+                    style: const ButtonStyle(
+                        visualDensity: VisualDensity.compact),
+                    segments: const [
+                      ButtonSegment(
+                          value: FeedSource.all, label: Text('전체')),
+                      ButtonSegment(
+                          value: FeedSource.subscribed, label: Text('구독')),
+                      ButtonSegment(
+                          value: FeedSource.unsubscribed, label: Text('비구독')),
+                    ],
+                    selected: {source},
+                    onSelectionChanged: (s) {
+                      final next = s.first;
+                      ref.read(feedSourceProvider.notifier).state = next;
+                      // Fetch the subscription list on demand if we have none.
+                      if (next != FeedSource.all &&
+                          subs.ids.isEmpty &&
+                          !subs.loading) {
+                        ref
+                            .read(subscribedChannelsProvider.notifier)
+                            .refresh();
+                      }
+                    },
+                  ),
+                ),
+                if (needsSubs && subs.loading)
+                  const Padding(
+                    padding: EdgeInsets.only(left: 8),
+                    child: SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                  )
+                else if (needsSubs)
+                  IconButton(
+                    tooltip: '구독 목록 새로고침',
+                    visualDensity: VisualDensity.compact,
+                    icon: const Icon(Icons.sync, size: 18),
+                    onPressed: () => ref
+                        .read(subscribedChannelsProvider.notifier)
+                        .refresh(),
+                  ),
+              ],
+            ),
+          ),
+          if (needsSubs && !subs.loading && subs.loaded && subs.ids.isEmpty)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+              child: Text(
+                subs.error != null
+                    ? '구독 목록을 불러오지 못했습니다. 마이 탭에서 YouTube 연결을 확인하세요.'
+                    : '구독 채널 정보가 없습니다. 마이 탭에서 YouTube를 연결하세요.',
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
+            ),
+        ],
       ),
     );
   }
