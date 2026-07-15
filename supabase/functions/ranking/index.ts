@@ -89,7 +89,7 @@ function parseItems(items: any[]): any[] {
       categoryId: s.categoryId ?? "",
       publishedAt: s.publishedAt ?? null,
       durationSeconds: secs,
-      isShort: secs > 0 && secs <= 240, // short-form heuristic: <=4min (no flag)
+      isShort: secs > 0 && secs < 240, // short-form heuristic: <4min (no flag)
       viewCount: +(st.viewCount ?? 0),
       likeCount: +(st.likeCount ?? 0),
       commentCount: +(st.commentCount ?? 0),

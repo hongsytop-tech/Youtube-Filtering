@@ -5,6 +5,7 @@ import '../../../core/config/env.dart';
 import '../../../core/supabase/supabase_service.dart';
 import '../../auth/providers/auth_providers.dart';
 import '../../feed/providers/feed_prefs.dart';
+import '../../feed/providers/feed_providers.dart';
 import '../../feed/providers/video_states_providers.dart';
 import '../../feed/screens/hidden_videos_screen.dart';
 import '../../update/update_section.dart';
@@ -29,6 +30,43 @@ class SettingsScreen extends ConsumerWidget {
           '피드를 새로고침하세요.',
         ),
       ));
+    } catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text('실패: $e')));
+    }
+  }
+
+  Future<void> _resetCollected(BuildContext context, WidgetRef ref) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('수집·숨김 영상 초기화'),
+        content: const Text(
+          '수집된 모든 영상과 숨김 처리한 영상 기록을 삭제합니다.\n'
+          '즐겨찾기한 영상은 그대로 유지됩니다. 되돌릴 수 없습니다.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('취소'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('초기화'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !context.mounted) return;
+
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.showSnackBar(const SnackBar(content: Text('초기화 중…')));
+    try {
+      await ref.read(feedServiceProvider).clearAll();
+      await ref.read(hiddenVideosProvider.notifier).clearAll();
+      ref.invalidate(feedProvider);
+      messenger.showSnackBar(
+        const SnackBar(content: Text('수집·숨김 영상을 초기화했습니다.')),
+      );
     } catch (e) {
       messenger.showSnackBar(SnackBar(content: Text('실패: $e')));
     }
@@ -78,6 +116,16 @@ class SettingsScreen extends ConsumerWidget {
               MaterialPageRoute(builder: (_) => const HiddenVideosScreen()),
             ),
           ),
+          if (SupabaseService.isSignedIn)
+            ListTile(
+              leading: Icon(
+                Icons.delete_sweep_outlined,
+                color: Theme.of(context).colorScheme.error,
+              ),
+              title: const Text('수집·숨김 영상 초기화'),
+              subtitle: const Text('즐겨찾기는 유지됩니다'),
+              onTap: () => _resetCollected(context, ref),
+            ),
           const Divider(),
           if (SupabaseService.isSignedIn)
             ListTile(

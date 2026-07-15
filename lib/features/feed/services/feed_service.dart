@@ -38,4 +38,13 @@ class FeedService {
     await _local.setJsonList(_key, videos.map((v) => v.toJson()).toList());
     return videos;
   }
+
+  /// Wipe every collected video for the signed-in user (server rows + local
+  /// cache). Favorites live in a separate table and are untouched.
+  Future<void> clearAll() async {
+    await _local.remove(_key);
+    final user = SupabaseService.currentUser;
+    if (user == null) return;
+    await SupabaseService.client.from(_table).delete().eq('user_id', user.id);
+  }
 }

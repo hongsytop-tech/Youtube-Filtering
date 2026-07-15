@@ -52,4 +52,10 @@ class HiddenVideosNotifier extends StateNotifier<Set<String>> {
       await _svc.unhide(videoId);
     } catch (_) {}
   }
+
+  /// Forget every hidden mark (so previously-deleted videos can reappear).
+  Future<void> clearAll() async {
+    state = <String>{};
+    await _svc.clearAll();
+  }
 }

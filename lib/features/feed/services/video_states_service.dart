@@ -60,4 +60,16 @@ class VideoStatesService {
         .eq('user_id', user.id)
         .eq('video_id', videoId);
   }
+
+  /// Clear every hidden mark for the signed-in user (server rows + local set).
+  Future<void> clearAll() async {
+    await _local.remove(_key);
+    final user = SupabaseService.currentUser;
+    if (user == null) return;
+    await SupabaseService.client
+        .from(_table)
+        .delete()
+        .eq('user_id', user.id)
+        .eq('status', 'hidden');
+  }
 }

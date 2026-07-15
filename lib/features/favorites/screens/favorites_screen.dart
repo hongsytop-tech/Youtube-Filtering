@@ -42,12 +42,54 @@ class _FavoritesScreenState extends ConsumerState<FavoritesScreen> {
     return null;
   }
 
+  Future<void> _resetFavorites() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('즐겨찾기 초기화'),
+        content: const Text(
+          '즐겨찾기한 모든 영상을 삭제합니다. 되돌릴 수 없습니다.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('취소'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('초기화'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await ref.read(favoritesProvider.notifier).clearAll();
+      messenger.showSnackBar(
+        const SnackBar(content: Text('즐겨찾기를 초기화했습니다.')),
+      );
+    } catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text('실패: $e')));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final favorites = ref.watch(favoritesProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('즐겨찾기')),
+      appBar: AppBar(
+        title: const Text('즐겨찾기'),
+        actions: [
+          if (favorites.isNotEmpty)
+            IconButton(
+              icon: const Icon(Icons.delete_sweep_outlined),
+              tooltip: '즐겨찾기 초기화',
+              onPressed: _resetFavorites,
+            ),
+        ],
+      ),
       body: Column(
         children: [
           Padding(

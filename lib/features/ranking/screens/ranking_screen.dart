@@ -38,9 +38,9 @@ class RankVideo {
   int get likes => (j['likeCount'] as num?)?.toInt() ?? 0;
   int get comments => (j['commentCount'] as num?)?.toInt() ?? 0;
   int get duration => (j['durationSeconds'] as num?)?.toInt() ?? 0;
-  // Classify short-form by duration (<=4min); no official Shorts flag exists.
-  // Computed client-side so it's independent of the function version.
-  bool get isShort => duration > 0 && duration <= 240;
+  // Short-form = 4분 미만(<240s). 일반 = 4분 이상. No official Shorts flag
+  // exists, so we classify by duration, computed client-side.
+  bool get isShort => duration > 0 && duration < 240;
   DateTime? get published => DateTime.tryParse('${j['publishedAt'] ?? ''}');
   String get watchUrl => 'https://www.youtube.com/watch?v=$videoId';
 
@@ -86,21 +86,17 @@ class _VideoRankingTab extends ConsumerStatefulWidget {
 
 class _VideoRankingTabState extends ConsumerState<_VideoRankingTab> {
   String _region = 'KR';
-  // Unified: 전체/일반 use the popular chart (cheap), 쇼츠 uses search.
+  // 인기차트(mostPopular)를 한 번 받아와 길이로 나눠서 보여준다.
+  // 전체(모든 인기 영상) / 일반(4분 이상) / 쇼츠(4분 미만) — 순수 화면 필터.
   String _mode = 'all'; // all | regular | shorts
-  String? _loadedKind; // 'popular' | 'shorts' — what _videos currently holds
   String _category = ''; // '' = 전체
   int _count = 50;
-  int _days = 7;
   List<Map<String, String>> _categories = [];
   List<RankVideo> _videos = [];
   String _sort = 'views';
   bool _desc = true;
   bool _loading = false;
   String? _error;
-
-  String get _neededKind => _mode == 'shorts' ? 'shorts' : 'popular';
-  bool get _stale => _videos.isNotEmpty && _loadedKind != _neededKind;
 
   @override
   void initState() {
@@ -136,21 +132,20 @@ class _VideoRankingTabState extends ConsumerState<_VideoRankingTab> {
       _error = null;
       _videos = [];
     });
-    final kind = _neededKind;
     try {
-      final body = {
-        'mode': kind,
-        'regionCode': _region,
-        'categoryId': _category,
-        'max': _count,
-        if (kind == 'shorts') 'days': _days,
-      };
-      final res =
-          await SupabaseService.client.functions.invoke('ranking', body: body);
+      // 언제나 인기차트 한 방 — 쇼츠/일반은 받아온 목록을 길이로 나눠서 보여준다.
+      final res = await SupabaseService.client.functions.invoke(
+        'ranking',
+        body: {
+          'mode': 'popular',
+          'regionCode': _region,
+          'categoryId': _category,
+          'max': _count,
+        },
+      );
       final data = res.data as Map?;
       final list = (data?['videos'] as List?) ?? const [];
       setState(() {
-        _loadedKind = kind;
         _videos = list
             .map((e) => RankVideo(Map<String, dynamic>.from(e)))
             .toList();
@@ -182,12 +177,10 @@ class _VideoRankingTabState extends ConsumerState<_VideoRankingTab> {
       }
     }
 
-    // The current data must match the selected mode's source; otherwise the
-    // user needs to re-fetch (handled by the stale hint in build).
-    if (_stale) return const [];
+    // 받아온 인기차트를 선택한 모드(전체/일반/쇼츠)로 걸러서 보여준다.
     var pool = _videos;
     if (_mode == 'shorts') {
-      pool = pool.where((v) => v.isShort).toList(); // safety net
+      pool = pool.where((v) => v.isShort).toList();
     } else if (_mode == 'regular') {
       pool = pool.where((v) => !v.isShort).toList();
     }
@@ -228,16 +221,6 @@ class _VideoRankingTabState extends ConsumerState<_VideoRankingTab> {
               ),
               _categoryDropdown(),
               _countDropdown(_count, (v) => setState(() => _count = v)),
-              if (_mode == 'shorts')
-                DropdownButton<int>(
-                  value: _days,
-                  onChanged: (v) => setState(() => _days = v ?? 7),
-                  items: const [
-                    DropdownMenuItem(value: 7, child: Text('최근 7일')),
-                    DropdownMenuItem(value: 30, child: Text('최근 30일')),
-                    DropdownMenuItem(value: 90, child: Text('최근 90일')),
-                  ],
-                ),
               FilledButton(
                 onPressed: _loading ? null : _fetch,
                 child: _loading
@@ -250,16 +233,6 @@ class _VideoRankingTabState extends ConsumerState<_VideoRankingTab> {
             ],
           ),
         ),
-        if (_stale)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-            child: Text(
-              _mode == 'shorts'
-                  ? '쇼츠는 별도 검색이라 "가져오기"를 눌러 불러오세요.'
-                  : '"가져오기"를 눌러 인기 차트를 불러오세요.',
-              style: TextStyle(color: Theme.of(context).hintColor),
-            ),
-          ),
         if (_sorted.isNotEmpty)
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -296,6 +269,19 @@ class _VideoRankingTabState extends ConsumerState<_VideoRankingTab> {
             padding: const EdgeInsets.all(16),
             child: Text(_error!,
                 style: TextStyle(color: Theme.of(context).colorScheme.error)),
+          ),
+        if (!_loading &&
+            _error == null &&
+            _videos.isNotEmpty &&
+            _sorted.isEmpty)
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Text(
+              _mode == 'shorts'
+                  ? '이 인기차트에는 쇼츠(4분 미만)가 없습니다. 인기차트에는 쇼츠가 거의 오르지 않아요.'
+                  : '이 조건에 맞는 영상이 없습니다.',
+              style: TextStyle(color: Theme.of(context).hintColor),
+            ),
           ),
         Expanded(
           child: ListView.builder(

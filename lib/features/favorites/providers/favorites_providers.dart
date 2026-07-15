@@ -86,6 +86,12 @@ class FavoritesNotifier extends StateNotifier<List<SavedVideo>> {
     } catch (_) {}
   }
 
+  /// Remove every favorite (server rows + local cache).
+  Future<void> clearAll() async {
+    state = const [];
+    await _svc.clearAll();
+  }
+
   List<SavedVideo> _sorted(List<SavedVideo> items) {
     final copy = [...items]..sort((a, b) {
         if (a.pinned != b.pinned) return a.pinned ? -1 : 1;
