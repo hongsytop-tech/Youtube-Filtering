@@ -83,21 +83,50 @@ class _RankSection extends StatelessWidget {
     );
   }
 
+  void _openAll(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (_) => _RankListSheet(title: title, kind: kind),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (items.isEmpty) return const SizedBox.shrink();
     final shown = items.take(max).toList();
     final top = shown.first.value;
+    final scheme = Theme.of(context).colorScheme;
     return Padding(
       padding: const EdgeInsets.only(top: 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title,
-              style: Theme.of(context)
-                  .textTheme
-                  .titleMedium
-                  ?.copyWith(fontWeight: FontWeight.w700)),
+          // Tap the header to browse the full list (every item + its count).
+          InkWell(
+            onTap: () => _openAll(context),
+            borderRadius: BorderRadius.circular(6),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 2),
+              child: Row(
+                children: [
+                  Text(title,
+                      style: Theme.of(context)
+                          .textTheme
+                          .titleMedium
+                          ?.copyWith(fontWeight: FontWeight.w700)),
+                  const SizedBox(width: 8),
+                  Text('전체 ${items.length}개',
+                      style: Theme.of(context)
+                          .textTheme
+                          .labelSmall
+                          ?.copyWith(color: scheme.primary)),
+                  Icon(Icons.chevron_right, size: 18, color: scheme.primary),
+                ],
+              ),
+            ),
+          ),
           const SizedBox(height: 4),
           for (final e in shown)
             _RankRow(
@@ -107,6 +136,143 @@ class _RankSection extends StatelessWidget {
               onTap: () => _open(context, e.key),
               onExclude: () => onExclude(e.key),
             ),
+          if (items.length > shown.length)
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                onPressed: () => _openAll(context),
+                icon: const Icon(Icons.expand_more, size: 18),
+                label: Text('나머지 ${items.length - shown.length}개 모두 보기'),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Full, searchable list of a ranking (all topics / channels / keywords with
+/// their video counts). Live — re-reads the insights so exclusions update it.
+class _RankListSheet extends ConsumerStatefulWidget {
+  const _RankListSheet({required this.title, required this.kind});
+
+  final String title;
+  final InsightKind kind;
+
+  @override
+  ConsumerState<_RankListSheet> createState() => _RankListSheetState();
+}
+
+class _RankListSheetState extends ConsumerState<_RankListSheet> {
+  final _c = TextEditingController();
+  String _q = '';
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  List<MapEntry<String, int>> _listFor(FeedInsights i) => switch (widget.kind) {
+        InsightKind.topic => i.topics,
+        InsightKind.channel => i.channels,
+        InsightKind.keyword => i.keywords,
+      };
+
+  void _exclude(String v) {
+    final n = ref.read(exclusionsProvider.notifier);
+    switch (widget.kind) {
+      case InsightKind.topic:
+        n.excludeTopic(v);
+      case InsightKind.channel:
+        n.excludeChannel(v);
+      case InsightKind.keyword:
+        n.excludeKeyword(v);
+    }
+  }
+
+  void _openVideos(String value) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (_) =>
+          _InsightVideosSheet(query: InsightQuery(widget.kind, value)),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final insights = ref.watch(feedInsightsProvider);
+    final all = _listFor(insights);
+    final q = _q.trim().toLowerCase();
+    final items = q.isEmpty
+        ? all
+        : all.where((e) => e.key.toLowerCase().contains(q)).toList();
+    final top = all.isEmpty ? 0 : all.first.value;
+    final maxH = MediaQuery.of(context).size.height * 0.85;
+    return ConstrainedBox(
+      constraints: BoxConstraints(maxHeight: maxH),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+            child: Text(
+              '${widget.title} · 전체 ${all.length}개',
+              style: Theme.of(context)
+                  .textTheme
+                  .titleMedium
+                  ?.copyWith(fontWeight: FontWeight.w700),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: TextField(
+              controller: _c,
+              autocorrect: false,
+              enableSuggestions: false,
+              onChanged: (v) => setState(() => _q = v),
+              decoration: InputDecoration(
+                hintText: '검색',
+                prefixIcon: const Icon(Icons.search),
+                suffixIcon: _q.isEmpty
+                    ? null
+                    : IconButton(
+                        icon: const Icon(Icons.clear),
+                        onPressed: () {
+                          _c.clear();
+                          setState(() => _q = '');
+                        },
+                      ),
+                isDense: true,
+                border: const OutlineInputBorder(),
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Flexible(
+            child: items.isEmpty
+                ? const Padding(
+                    padding: EdgeInsets.all(24),
+                    child: Center(child: Text('결과가 없습니다.')),
+                  )
+                : ListView.builder(
+                    padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
+                    itemCount: items.length,
+                    itemBuilder: (_, i) {
+                      final e = items[i];
+                      return _RankRow(
+                        label: e.key,
+                        count: e.value,
+                        fraction: top == 0 ? 0 : e.value / top,
+                        onTap: () => _openVideos(e.key),
+                        onExclude: () => _exclude(e.key),
+                      );
+                    },
+                  ),
+          ),
         ],
       ),
     );

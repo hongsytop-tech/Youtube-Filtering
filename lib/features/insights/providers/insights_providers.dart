@@ -107,16 +107,18 @@ final feedInsightsProvider = Provider.autoDispose<FeedInsights>((ref) {
     }
   }
 
-  List<MapEntry<String, int>> top(Map<String, int> m, int n, {int min = 1}) {
+  // Full ranked lists (no truncation) — the UI shows a Top-N preview and lets
+  // the user tap the section header to browse everything.
+  List<MapEntry<String, int>> ranked(Map<String, int> m, {int min = 1}) {
     final list = m.entries.where((e) => e.value >= min).toList()
       ..sort((a, b) => b.value.compareTo(a.value));
-    return list.take(n).toList();
+    return list;
   }
 
   return FeedInsights(
     total: pool.length,
-    topics: top(topicCount, 20),
-    channels: top(channelCount, 20),
-    keywords: top(keywordCount, 25, min: 2),
+    topics: ranked(topicCount),
+    channels: ranked(channelCount),
+    keywords: ranked(keywordCount, min: 2),
   );
 });
