@@ -58,6 +58,29 @@ class FavoritesService {
         .eq('video_id', videoId);
   }
 
+  /// Move a favorite into a folder (null = 미분류/unfiled).
+  Future<void> setFolder(String videoId, String? folderId) async {
+    final user = SupabaseService.currentUser;
+    if (user == null) return;
+    await SupabaseService.client
+        .from(_table)
+        .update({'folder_id': folderId})
+        .eq('user_id', user.id)
+        .eq('video_id', videoId);
+  }
+
+  /// Clear a folder from every video filed under it (used when deleting a
+  /// folder). Best-effort; the local state is updated by the caller.
+  Future<void> clearFolder(String folderId) async {
+    final user = SupabaseService.currentUser;
+    if (user == null) return;
+    await SupabaseService.client
+        .from(_table)
+        .update({'folder_id': null})
+        .eq('user_id', user.id)
+        .eq('folder_id', folderId);
+  }
+
   /// Remove every favorite for the signed-in user (server rows + local cache).
   Future<void> clearAll() async {
     await _local.remove(_key);

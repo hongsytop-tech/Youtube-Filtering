@@ -1,11 +1,14 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../feed/models/feed_video.dart';
 import '../../feed/providers/feed_providers.dart';
 import '../../feed/widgets/video_card.dart';
+import '../models/favorite_folder.dart';
 import '../models/saved_video.dart';
 import '../providers/favorites_providers.dart';
+import '../providers/folders_providers.dart';
 
 class FavoritesScreen extends ConsumerStatefulWidget {
   const FavoritesScreen({super.key});
@@ -74,14 +77,57 @@ class _FavoritesScreenState extends ConsumerState<FavoritesScreen> {
     }
   }
 
+  Future<void> _createFolder() async {
+    final name = await _promptName(title: '폴더 만들기');
+    if (name == null) return;
+    final id = await ref.read(favoriteFoldersProvider.notifier).add(name);
+    ref.read(selectedFolderProvider.notifier).state = id;
+  }
+
+  Future<String?> _promptName({required String title, String initial = ''}) {
+    final c = TextEditingController(text: initial);
+    return showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(title),
+        content: TextField(
+          controller: c,
+          autofocus: true,
+          textInputAction: TextInputAction.done,
+          onSubmitted: (_) => Navigator.pop(ctx, c.text),
+          decoration: const InputDecoration(
+            hintText: '폴더 이름',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('취소'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, c.text),
+            child: const Text('확인'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final favorites = ref.watch(favoritesProvider);
+    final searching = _query.trim().isNotEmpty;
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('즐겨찾기'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.create_new_folder_outlined),
+            tooltip: '폴더 만들기',
+            onPressed: _createFolder,
+          ),
           if (favorites.isNotEmpty)
             IconButton(
               icon: const Icon(Icons.delete_sweep_outlined),
@@ -117,61 +163,373 @@ class _FavoritesScreenState extends ConsumerState<FavoritesScreen> {
               ),
             ),
           ),
+          if (!searching)
+            _FolderBar(
+              favorites: favorites,
+              onCreate: _createFolder,
+              onRename: (f) async {
+                final name =
+                    await _promptName(title: '폴더 이름 변경', initial: f.name);
+                if (name != null) {
+                  await ref
+                      .read(favoriteFoldersProvider.notifier)
+                      .rename(f.id, name);
+                }
+              },
+              onDelete: _deleteFolder,
+            ),
           Expanded(
-            child: _query.trim().isEmpty
-                ? _FavoritesList(favorites: favorites)
-                : _SearchResults(query: _query, parseVideoId: _parseVideoId),
+            child: searching
+                ? _SearchResults(query: _query, parseVideoId: _parseVideoId)
+                : _FavoritesList(favorites: favorites),
           ),
         ],
       ),
     );
   }
+
+  Future<void> _deleteFolder(FavoriteFolder f) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('"${f.name}" 폴더 삭제'),
+        content: const Text(
+          '폴더만 삭제되고, 안에 있던 영상은 미분류로 이동합니다. '
+          '즐겨찾기 자체는 삭제되지 않습니다.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('취소'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('삭제'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    await ref.read(favoritesProvider.notifier).clearFolderAssignments(f.id);
+    await ref.read(favoriteFoldersProvider.notifier).remove(f.id);
+    if (ref.read(selectedFolderProvider) == f.id) {
+      ref.read(selectedFolderProvider.notifier).state = null;
+    }
+  }
 }
 
-class _FavoritesList extends StatelessWidget {
+/// Horizontal folder selector. Each folder chip is also a drop target: drag a
+/// video card onto it to file the video there. 전체 = all, 미분류 = unfiled.
+class _FolderBar extends ConsumerWidget {
+  const _FolderBar({
+    required this.favorites,
+    required this.onCreate,
+    required this.onRename,
+    required this.onDelete,
+  });
+
+  final List<SavedVideo> favorites;
+  final VoidCallback onCreate;
+  final void Function(FavoriteFolder) onRename;
+  final void Function(FavoriteFolder) onDelete;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final folders = ref.watch(favoriteFoldersProvider);
+    final selected = ref.watch(selectedFolderProvider);
+
+    final unfiled = favorites.where((v) => v.folderId == null).length;
+    final countByFolder = <String, int>{};
+    for (final v in favorites) {
+      final fid = v.folderId;
+      if (fid != null) countByFolder[fid] = (countByFolder[fid] ?? 0) + 1;
+    }
+
+    void select(String? id) =>
+        ref.read(selectedFolderProvider.notifier).state = id;
+
+    Future<void> assign(SavedVideo v, String? folderId) async {
+      await ref.read(favoritesProvider.notifier).setFolder(v.videoId, folderId);
+      if (!context.mounted) return;
+      final where = folderId == null
+          ? '미분류'
+          : folders
+              .firstWhere(
+                (f) => f.id == folderId,
+                orElse: () =>
+                    const FavoriteFolder(id: '', name: '폴더', order: 0),
+              )
+              .name;
+      ScaffoldMessenger.of(context)
+        ..clearSnackBars()
+        ..showSnackBar(
+          SnackBar(
+            duration: const Duration(seconds: 2),
+            content: Text('"$where"(으)로 이동했습니다'),
+          ),
+        );
+    }
+
+    return Material(
+      elevation: 1,
+      child: SizedBox(
+        height: 52,
+        child: ListView(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+          children: [
+            // 전체 — filter only (not a drop target).
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              child: FilterChip(
+                label: Text('전체 (${favorites.length})'),
+                selected: selected == null,
+                showCheckmark: false,
+                onSelected: (_) => select(null),
+              ),
+            ),
+            // 미분류 — dropping here unfiles a video.
+            _DropChip(
+              label: '미분류',
+              count: unfiled,
+              selected: selected == kUnfiledFolderId,
+              onSelected: () => select(kUnfiledFolderId),
+              onAccept: (v) => assign(v, null),
+            ),
+            for (final f in folders)
+              _DropChip(
+                label: f.name,
+                count: countByFolder[f.id] ?? 0,
+                selected: selected == f.id,
+                onSelected: () => select(f.id),
+                onAccept: (v) => assign(v, f.id),
+                onLongPress: () => _folderMenu(context, f),
+              ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              child: ActionChip(
+                avatar: const Icon(Icons.add, size: 18),
+                label: const Text('폴더'),
+                onPressed: onCreate,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _folderMenu(BuildContext context, FavoriteFolder f) {
+    showModalBottomSheet(
+      context: context,
+      showDragHandle: true,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.edit_outlined),
+              title: const Text('이름 변경'),
+              onTap: () {
+                Navigator.pop(ctx);
+                onRename(f);
+              },
+            ),
+            ListTile(
+              leading: Icon(Icons.delete_outline,
+                  color: Theme.of(context).colorScheme.error),
+              title: const Text('폴더 삭제'),
+              onTap: () {
+                Navigator.pop(ctx);
+                onDelete(f);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// A selectable folder chip that also accepts dropped videos.
+class _DropChip extends StatelessWidget {
+  const _DropChip({
+    required this.label,
+    required this.count,
+    required this.selected,
+    required this.onSelected,
+    required this.onAccept,
+    this.onLongPress,
+  });
+
+  final String label;
+  final int count;
+  final bool selected;
+  final VoidCallback onSelected;
+  final void Function(SavedVideo) onAccept;
+  final VoidCallback? onLongPress;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      child: DragTarget<SavedVideo>(
+        onWillAcceptWithDetails: (_) => true,
+        onAcceptWithDetails: (d) => onAccept(d.data),
+        builder: (context, candidate, rejected) {
+          final hot = candidate.isNotEmpty;
+          return GestureDetector(
+            onLongPress: onLongPress,
+            child: FilterChip(
+              label: Text('$label ($count)'),
+              selected: selected,
+              showCheckmark: false,
+              backgroundColor: hot ? scheme.primary.withOpacity(0.22) : null,
+              side: hot ? BorderSide(color: scheme.primary, width: 2) : null,
+              onSelected: (_) => onSelected(),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _FavoritesList extends ConsumerWidget {
   const _FavoritesList({required this.favorites});
 
   final List<SavedVideo> favorites;
 
   @override
-  Widget build(BuildContext context) {
-    if (favorites.isEmpty) {
-      return const Center(
+  Widget build(BuildContext context, WidgetRef ref) {
+    final selected = ref.watch(selectedFolderProvider);
+    final folders = ref.watch(favoriteFoldersProvider);
+
+    final inView = favorites.where((v) {
+      if (selected == null) return true;
+      if (selected == kUnfiledFolderId) return v.folderId == null;
+      return v.folderId == selected;
+    }).toList();
+
+    if (inView.isEmpty) {
+      final msg = selected == null
+          ? '즐겨찾기한 영상이 없습니다.\n'
+              '피드에서 별(☆)을 누르거나, 위에서 제목·링크로 검색해 추가하세요.'
+          : '이 폴더에 영상이 없습니다.\n영상을 길게 눌러 이 폴더로 드래그하세요.';
+      return Center(
         child: Padding(
-          padding: EdgeInsets.all(32),
-          child: Text(
-            '즐겨찾기한 영상이 없습니다.\n'
-            '피드에서 별(☆)을 누르거나, 위에서 제목·링크로 검색해 추가하세요.',
-            textAlign: TextAlign.center,
-          ),
+          padding: const EdgeInsets.all(32),
+          child: Text(msg, textAlign: TextAlign.center),
         ),
       );
     }
 
-    final pinned = favorites.where((e) => e.pinned).toList();
-    final others = favorites.where((e) => !e.pinned).toList();
+    final pinned = inView.where((e) => e.pinned).toList();
+    final others = inView.where((e) => !e.pinned).toList();
 
     return ListView(
       padding: const EdgeInsets.only(bottom: 24),
       children: [
+        if (folders.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+            child: Text(
+              '카드를 길게 눌러 위의 폴더로 드래그하면 정리됩니다.',
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: Theme.of(context).hintColor,
+                  ),
+            ),
+          ),
         if (pinned.isNotEmpty) const _SectionHeader('📌 고정됨'),
-        for (final v in pinned) _favCard(v),
+        for (final v in pinned)
+          _DraggableFavorite(key: ValueKey(v.videoId), video: v),
         if (pinned.isNotEmpty && others.isNotEmpty)
           const _SectionHeader('저장한 영상'),
-        for (final v in others) _favCard(v),
+        for (final v in others)
+          _DraggableFavorite(key: ValueKey(v.videoId), video: v),
       ],
     );
   }
+}
 
-  Widget _favCard(SavedVideo v) => Consumer(
-        key: ValueKey(v.videoId),
-        builder: (context, ref, _) => VideoCard(
-          video: v.toFeedVideo(),
-          pinned: v.pinned,
-          onTogglePin: () =>
-              ref.read(favoritesProvider.notifier).togglePin(v.videoId),
+/// A favorite card that can be long-pressed and dragged onto a folder chip.
+class _DraggableFavorite extends ConsumerWidget {
+  const _DraggableFavorite({super.key, required this.video});
+
+  final SavedVideo video;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final card = VideoCard(
+      video: video.toFeedVideo(),
+      pinned: video.pinned,
+      onTogglePin: () =>
+          ref.read(favoritesProvider.notifier).togglePin(video.videoId),
+    );
+
+    return LongPressDraggable<SavedVideo>(
+      data: video,
+      hapticFeedbackOnStart: true,
+      dragAnchorStrategy: pointerDragAnchorStrategy,
+      feedback: _DragFeedback(video: video),
+      childWhenDragging: Opacity(opacity: 0.4, child: card),
+      child: card,
+    );
+  }
+}
+
+/// Compact floating preview shown under the finger while dragging a favorite.
+class _DragFeedback extends StatelessWidget {
+  const _DragFeedback({required this.video});
+
+  final SavedVideo video;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Material(
+      color: Colors.transparent,
+      child: Container(
+        width: 240,
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: scheme.surfaceVariant,
+          borderRadius: BorderRadius.circular(8),
+          boxShadow: const [
+            BoxShadow(
+                color: Colors.black26, blurRadius: 8, offset: Offset(0, 3)),
+          ],
         ),
-      );
+        child: Row(
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: CachedNetworkImage(
+                imageUrl: video.thumbnailUrl,
+                width: 64,
+                height: 36,
+                fit: BoxFit.cover,
+                placeholder: (_, __) => const ColoredBox(color: Colors.black12),
+                errorWidget: (_, __, ___) =>
+                    const ColoredBox(color: Colors.black12),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                video.title,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.labelMedium,
+              ),
+            ),
+            const Icon(Icons.drag_indicator, size: 18),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class _SearchResults extends ConsumerWidget {
@@ -192,7 +550,8 @@ class _SearchResults extends ConsumerWidget {
     // A pasted link/id first — use feed metadata if we have it, else a stub.
     if (id != null) {
       final match = feed.where((v) => v.videoId == id).toList();
-      results.add(match.isNotEmpty ? match.first : SavedVideo.fromId(id).toFeedVideo());
+      results.add(
+          match.isNotEmpty ? match.first : SavedVideo.fromId(id).toFeedVideo());
       seen.add(id);
     }
     // Then title matches from the collected feed.

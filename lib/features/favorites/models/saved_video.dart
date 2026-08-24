@@ -10,6 +10,7 @@ class SavedVideo {
     required this.thumbnailUrl,
     this.publishedAt,
     this.pinned = false,
+    this.folderId,
     required this.createdAt,
   });
 
@@ -19,6 +20,9 @@ class SavedVideo {
   final String thumbnailUrl;
   final DateTime? publishedAt;
   final bool pinned;
+
+  /// Id of the folder this favorite is filed under (null = 미분류/unfiled).
+  final String? folderId;
   final DateTime createdAt;
 
   String get watchUrl => 'https://www.youtube.com/watch?v=$videoId';
@@ -62,6 +66,9 @@ class SavedVideo {
                 '${j['publishedAt'] ?? j['published_at'] ?? ''}')
             ?.toLocal(),
         pinned: (j['pinned'] ?? false) as bool,
+        folderId: (j['folderId'] ?? j['folder_id']) == null
+            ? null
+            : '${j['folderId'] ?? j['folder_id']}',
         createdAt:
             DateTime.tryParse('${j['createdAt'] ?? j['created_at'] ?? ''}')
                     ?.toLocal() ??
@@ -76,6 +83,7 @@ class SavedVideo {
         'thumbnailUrl': thumbnailUrl,
         'publishedAt': publishedAt?.toUtc().toIso8601String(),
         'pinned': pinned,
+        'folderId': folderId,
         'createdAt': createdAt.toUtc().toIso8601String(),
       };
 
@@ -88,16 +96,24 @@ class SavedVideo {
         'thumbnail_url': thumbnailUrl,
         'published_at': publishedAt?.toUtc().toIso8601String(),
         'pinned': pinned,
+        'folder_id': folderId,
         'created_at': createdAt.toUtc().toIso8601String(),
       };
 
-  SavedVideo copyWith({bool? pinned}) => SavedVideo(
+  // `_keep` distinguishes "argument omitted" from "explicitly set to null" so
+  // folderId can be cleared (move to 미분류) via copyWith.
+  static const _keep = Object();
+
+  SavedVideo copyWith({bool? pinned, Object? folderId = _keep}) => SavedVideo(
         videoId: videoId,
         title: title,
         channelTitle: channelTitle,
         thumbnailUrl: thumbnailUrl,
         publishedAt: publishedAt,
         pinned: pinned ?? this.pinned,
+        folderId: identical(folderId, _keep)
+            ? this.folderId
+            : folderId as String?,
         createdAt: createdAt,
       );
 }

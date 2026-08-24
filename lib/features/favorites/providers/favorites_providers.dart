@@ -86,6 +86,31 @@ class FavoritesNotifier extends StateNotifier<List<SavedVideo>> {
     } catch (_) {}
   }
 
+  /// Move a favorite into a folder (null = 미분류/unfiled).
+  Future<void> setFolder(String videoId, String? folderId) async {
+    if (!state.any((e) => e.videoId == videoId)) return;
+    state = [
+      for (final e in state)
+        if (e.videoId == videoId) e.copyWith(folderId: folderId) else e,
+    ];
+    await _svc.saveLocal(state);
+    try {
+      await _svc.setFolder(videoId, folderId);
+    } catch (_) {}
+  }
+
+  /// Unfile every video that was in [folderId] (called when a folder is deleted).
+  Future<void> clearFolderAssignments(String folderId) async {
+    state = [
+      for (final e in state)
+        if (e.folderId == folderId) e.copyWith(folderId: null) else e,
+    ];
+    await _svc.saveLocal(state);
+    try {
+      await _svc.clearFolder(folderId);
+    } catch (_) {}
+  }
+
   /// Remove every favorite (server rows + local cache).
   Future<void> clearAll() async {
     state = const [];
