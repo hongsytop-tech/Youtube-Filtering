@@ -1,5 +1,6 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -128,6 +129,7 @@ class VideoCard extends ConsumerWidget {
                 isFav: isFav,
                 showFavorite: showFavorite,
                 pinned: pinned,
+                watchUrl: video.watchUrl,
                 onToggleFavorite: () => ref
                     .read(favoritesProvider.notifier)
                     .toggle(SavedVideo.fromFeedVideo(video)),
@@ -155,6 +157,7 @@ class _Actions extends StatelessWidget {
     required this.isFav,
     required this.showFavorite,
     required this.pinned,
+    required this.watchUrl,
     required this.onToggleFavorite,
     required this.onTogglePin,
     required this.onHide,
@@ -163,9 +166,23 @@ class _Actions extends StatelessWidget {
   final bool isFav;
   final bool showFavorite;
   final bool? pinned;
+  final String watchUrl;
   final VoidCallback onToggleFavorite;
   final VoidCallback? onTogglePin;
   final VoidCallback? onHide;
+
+  Future<void> _copyLink(BuildContext context) async {
+    await Clipboard.setData(ClipboardData(text: watchUrl));
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context)
+      ..clearSnackBars()
+      ..showSnackBar(
+        const SnackBar(
+          duration: Duration(seconds: 2),
+          content: Text('링크를 복사했습니다'),
+        ),
+      );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -173,6 +190,15 @@ class _Actions extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
+        IconButton(
+          tooltip: '링크 복사',
+          iconSize: 20,
+          visualDensity: VisualDensity.compact,
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints(minWidth: 34, minHeight: 34),
+          icon: const Icon(Icons.link),
+          onPressed: () => _copyLink(context),
+        ),
         if (showFavorite)
           IconButton(
             tooltip: isFav ? '즐겨찾기 해제' : '즐겨찾기',
