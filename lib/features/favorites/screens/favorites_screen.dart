@@ -242,7 +242,7 @@ class _FavoritesScreenState extends ConsumerState<FavoritesScreen> {
     await ref.read(favoritesProvider.notifier).clearFolderAssignments(f.id);
     await ref.read(favoriteFoldersProvider.notifier).remove(f.id);
     if (ref.read(selectedFolderProvider) == f.id) {
-      ref.read(selectedFolderProvider.notifier).state = null;
+      ref.read(selectedFolderProvider.notifier).state = kUnfiledFolderId;
     }
   }
 }
@@ -307,17 +307,7 @@ class _FolderBar extends ConsumerWidget {
           scrollDirection: Axis.horizontal,
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
           children: [
-            // 전체 — filter only (not a drop target).
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 4),
-              child: FilterChip(
-                label: Text('전체 (${favorites.length})'),
-                selected: selected == null,
-                showCheckmark: false,
-                onSelected: (_) => select(null),
-              ),
-            ),
-            // 미분류 — dropping here unfiles a video.
+            // 미분류 — dropping here unfiles a video (default view).
             _DropChip(
               label: '미분류',
               count: unfiled,
@@ -435,15 +425,18 @@ class _FavoritesList extends ConsumerWidget {
     final selected = ref.watch(selectedFolderProvider);
     final folders = ref.watch(favoriteFoldersProvider);
 
+    // No "전체" view: 미분류(null selection or the sentinel) shows only unfiled
+    // videos; a folder selection shows just that folder. Filed videos are
+    // hidden until you open their folder.
+    final unfiledView = selected == null || selected == kUnfiledFolderId;
     final inView = favorites.where((v) {
-      if (selected == null) return true;
-      if (selected == kUnfiledFolderId) return v.folderId == null;
+      if (unfiledView) return v.folderId == null;
       return v.folderId == selected;
     }).toList();
 
     if (inView.isEmpty) {
-      final msg = selected == null
-          ? '즐겨찾기한 영상이 없습니다.\n'
+      final msg = unfiledView
+          ? '미분류 영상이 없습니다.\n'
               '피드에서 별(☆)을 누르거나, 위에서 제목·링크로 검색해 추가하세요.'
           : '이 폴더에 영상이 없습니다.\n영상을 길게 눌러 이 폴더로 드래그하세요.';
       return Center(

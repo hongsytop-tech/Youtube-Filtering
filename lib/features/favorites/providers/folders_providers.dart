@@ -19,9 +19,11 @@ final favoriteFoldersProvider =
   (ref) => FavoriteFoldersNotifier(ref.watch(favoriteFoldersServiceProvider)),
 );
 
-/// Which folder is being viewed: null = 전체, kUnfiledFolderId = 미분류,
-/// otherwise a folder id.
-final selectedFolderProvider = StateProvider<String?>((ref) => null);
+/// Which folder is being viewed: kUnfiledFolderId = 미분류 (default), otherwise
+/// a folder id. There is no "전체" view — filed videos only show inside their
+/// folder.
+final selectedFolderProvider =
+    StateProvider<String?>((ref) => kUnfiledFolderId);
 
 class FavoriteFoldersNotifier extends StateNotifier<List<FavoriteFolder>> {
   FavoriteFoldersNotifier(this._svc) : super(const []) {
