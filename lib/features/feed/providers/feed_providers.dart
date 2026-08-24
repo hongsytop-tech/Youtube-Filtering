@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/providers/core_providers.dart';
 import '../../categories/providers/categories_providers.dart';
+import '../../favorites/providers/favorites_providers.dart';
 import '../../insights/models/exclusions.dart';
 import '../../insights/providers/exclusions_providers.dart';
 import '../models/feed_video.dart';
@@ -32,9 +33,10 @@ final filteredFeedProvider = Provider.autoDispose<AsyncValue<List<FeedVideo>>>(
     final excl = ref.watch(exclusionsProvider);
     final source = ref.watch(feedSourceProvider);
     final subs = ref.watch(subscribedChannelsProvider).ids;
+    final favs = ref.watch(favoriteIdsProvider);
     return feed.whenData(
       (videos) => _applyFilter(
-          videos, selected, includeShorts, hidden, excl, source, subs),
+          videos, selected, includeShorts, hidden, excl, source, subs, favs),
     );
   },
 );
@@ -61,9 +63,11 @@ final presentTopicsProvider = Provider.autoDispose<Set<String>>((ref) {
   final excl = ref.watch(exclusionsProvider);
   final source = ref.watch(feedSourceProvider);
   final subs = ref.watch(subscribedChannelsProvider).ids;
+  final favs = ref.watch(favoriteIdsProvider);
   final out = <String>{};
   for (final v in videos) {
     if (hidden.contains(v.videoId)) continue;
+    if (favs.contains(v.videoId)) continue;
     if (!includeShorts && v.isShort) continue;
     if (excl.matches(v)) continue;
     if (!_matchesSource(v, source, subs)) continue;
@@ -80,8 +84,11 @@ List<FeedVideo> _applyFilter(
   Exclusions excl,
   FeedSource source,
   Set<String> subs,
+  Set<String> favorites,
 ) {
   var pool = videos.where((v) => !hidden.contains(v.videoId)).toList();
+  // Favorited videos are moved to the 즐겨찾기 tab, so hide them from the feed.
+  pool = pool.where((v) => !favorites.contains(v.videoId)).toList();
   if (!includeShorts) {
     pool = pool.where((v) => !v.isShort).toList();
   }
