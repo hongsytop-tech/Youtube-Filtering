@@ -7,6 +7,14 @@ import '../../../core/supabase/supabase_service.dart';
 import '../../favorites/models/saved_video.dart';
 import '../../favorites/providers/favorites_providers.dart';
 
+String _fmtDur(int s) {
+  final h = s ~/ 3600;
+  final m = (s % 3600) ~/ 60;
+  final sec = (s % 60).toString().padLeft(2, '0');
+  if (h > 0) return '$h:${(m).toString().padLeft(2, '0')}:$sec';
+  return '$m:$sec';
+}
+
 class _ChannelVideo {
   _ChannelVideo({
     required this.videoId,
@@ -14,6 +22,8 @@ class _ChannelVideo {
     required this.thumbnailUrl,
     required this.publishedAt,
     required this.channelTitle,
+    required this.durationSeconds,
+    required this.isShort,
   });
 
   final String videoId;
@@ -21,16 +31,24 @@ class _ChannelVideo {
   final String thumbnailUrl;
   final DateTime? publishedAt;
   final String channelTitle;
+  final int durationSeconds;
+  final bool isShort;
 
   String get watchUrl => 'https://www.youtube.com/watch?v=$videoId';
 
-  factory _ChannelVideo.fromJson(Map<String, dynamic> j) => _ChannelVideo(
-        videoId: '${j['videoId'] ?? ''}',
-        title: '${j['title'] ?? ''}',
-        thumbnailUrl: '${j['thumbnailUrl'] ?? ''}',
-        publishedAt: DateTime.tryParse('${j['publishedAt'] ?? ''}')?.toLocal(),
-        channelTitle: '${j['channelTitle'] ?? ''}',
-      );
+  factory _ChannelVideo.fromJson(Map<String, dynamic> j) {
+    final secs = (j['durationSeconds'] as num?)?.toInt() ?? 0;
+    return _ChannelVideo(
+      videoId: '${j['videoId'] ?? ''}',
+      title: '${j['title'] ?? ''}',
+      thumbnailUrl: '${j['thumbnailUrl'] ?? ''}',
+      publishedAt: DateTime.tryParse('${j['publishedAt'] ?? ''}')?.toLocal(),
+      channelTitle: '${j['channelTitle'] ?? ''}',
+      durationSeconds: secs,
+      // Prefer the server flag; fall back to the same <4min duration rule.
+      isShort: (j['isShort'] as bool?) ?? (secs > 0 && secs < 240),
+    );
+  }
 
   SavedVideo toSaved() => SavedVideo(
         videoId: videoId,
@@ -52,11 +70,23 @@ class ChannelFetchScreen extends ConsumerStatefulWidget {
 class _ChannelFetchScreenState extends ConsumerState<ChannelFetchScreen> {
   final _input = TextEditingController();
   int _count = 50;
+  String _mode = 'all'; // all | regular | shorts
   List<_ChannelVideo> _videos = [];
   final Set<String> _selected = {};
   String? _channelTitle;
   String? _error;
   bool _loading = false;
+
+  List<_ChannelVideo> get _shown {
+    switch (_mode) {
+      case 'regular':
+        return _videos.where((v) => !v.isShort).toList();
+      case 'shorts':
+        return _videos.where((v) => v.isShort).toList();
+      default:
+        return _videos;
+    }
+  }
 
   @override
   void dispose() {
@@ -105,12 +135,13 @@ class _ChannelFetchScreenState extends ConsumerState<ChannelFetchScreen> {
       });
 
   void _selectAll() => setState(() {
-        if (_selected.length == _videos.length) {
-          _selected.clear();
+        final shown = _shown;
+        final allSel = shown.isNotEmpty &&
+            shown.every((v) => _selected.contains(v.videoId));
+        if (allSel) {
+          _selected.removeAll(shown.map((v) => v.videoId));
         } else {
-          _selected
-            ..clear()
-            ..addAll(_videos.map((v) => v.videoId));
+          _selected.addAll(shown.map((v) => v.videoId));
         }
       });
 
@@ -141,7 +172,9 @@ class _ChannelFetchScreenState extends ConsumerState<ChannelFetchScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final allSel = _videos.isNotEmpty && _selected.length == _videos.length;
+    final shown = _shown;
+    final allSel = shown.isNotEmpty &&
+        shown.every((v) => _selected.contains(v.videoId));
     return Scaffold(
       appBar: AppBar(title: const Text('채널 영상 가져오기')),
       body: Column(
@@ -198,12 +231,26 @@ class _ChannelFetchScreenState extends ConsumerState<ChannelFetchScreen> {
             ),
           if (_videos.isNotEmpty)
             Padding(
+              padding: const EdgeInsets.fromLTRB(12, 0, 12, 6),
+              child: SegmentedButton<String>(
+                style: const ButtonStyle(visualDensity: VisualDensity.compact),
+                segments: const [
+                  ButtonSegment(value: 'all', label: Text('전체')),
+                  ButtonSegment(value: 'regular', label: Text('일반')),
+                  ButtonSegment(value: 'shorts', label: Text('쇼츠')),
+                ],
+                selected: {_mode},
+                onSelectionChanged: (s) => setState(() => _mode = s.first),
+              ),
+            ),
+          if (_videos.isNotEmpty)
+            Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12),
               child: Row(
                 children: [
                   Expanded(
                     child: Text(
-                      '${_channelTitle ?? ''} · ${_videos.length}개',
+                      '${_channelTitle ?? ''} · ${shown.length}개',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.titleSmall,
@@ -218,9 +265,9 @@ class _ChannelFetchScreenState extends ConsumerState<ChannelFetchScreen> {
             ),
           Expanded(
             child: ListView.builder(
-              itemCount: _videos.length,
+              itemCount: shown.length,
               itemBuilder: (_, i) {
-                final v = _videos[i];
+                final v = shown[i];
                 final sel = _selected.contains(v.videoId);
                 return CheckboxListTile(
                   value: sel,
@@ -241,6 +288,33 @@ class _ChannelFetchScreenState extends ConsumerState<ChannelFetchScreen> {
                   ),
                   title: Text(v.title,
                       maxLines: 2, overflow: TextOverflow.ellipsis),
+                  subtitle: Row(
+                    children: [
+                      if (v.isShort)
+                        Container(
+                          margin: const EdgeInsets.only(right: 6),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 6, vertical: 1),
+                          decoration: BoxDecoration(
+                            color:
+                                Theme.of(context).colorScheme.tertiaryContainer,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text('쇼츠',
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .labelSmall
+                                  ?.copyWith(
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .onTertiaryContainer,
+                                  )),
+                        ),
+                      if (v.durationSeconds > 0)
+                        Text(_fmtDur(v.durationSeconds),
+                            style: Theme.of(context).textTheme.labelSmall),
+                    ],
+                  ),
                   dense: true,
                 );
               },

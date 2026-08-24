@@ -68,7 +68,7 @@ function durationSeconds(iso: string): number {
   return (+(m[1] ?? 0)) * 3600 + (+(m[2] ?? 0)) * 60 + (+(m[3] ?? 0));
 }
 
-const SHORTS_MAX_SECONDS = 60; // <=60s is treated as a Short and excluded
+const SHORTS_MAX_SECONDS = 240; // <4min classified as Short (matches ranking)
 
 // Resolve the input to {channelId, uploads playlist id, title}.
 async function resolveChannel(token: string, input: string): Promise<
@@ -154,7 +154,7 @@ Deno.serve(async (req) => {
   }
   const input = String(body.channel ?? "").trim();
   if (!input) return json({ error: "no_channel" }, 400);
-  // Target count of non-Short videos to return (50 / 100 / 150 ...).
+  // Target count of videos to return (50 / 100 / 150 ...).
   const max = Math.max(1, Math.min(300, Number(body.max) || 50));
 
   const tokRes = await db(
@@ -224,7 +224,6 @@ Deno.serve(async (req) => {
       if (s.liveBroadcastContent && s.liveBroadcastContent !== "none") continue;
       if (v.status && v.status.uploadStatus === "rejected") continue;
       const secs = durationSeconds(v.contentDetails?.duration ?? "PT0S");
-      if (secs > 0 && secs <= SHORTS_MAX_SECONDS) continue; // Short
       const th = s.thumbnails ?? {};
       videos.push({
         videoId: vid,
@@ -233,6 +232,7 @@ Deno.serve(async (req) => {
         publishedAt: s.publishedAt ?? null,
         channelTitle: ch.title,
         durationSeconds: secs,
+        isShort: secs > 0 && secs < SHORTS_MAX_SECONDS,
       });
       if (videos.length >= max) break;
     }
