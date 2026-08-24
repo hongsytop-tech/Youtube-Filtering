@@ -11,6 +11,7 @@ class SavedVideo {
     this.publishedAt,
     this.pinned = false,
     this.folderId,
+    this.topics = const [],
     required this.createdAt,
   });
 
@@ -23,6 +24,10 @@ class SavedVideo {
 
   /// Id of the folder this favorite is filed under (null = 미분류/unfiled).
   final String? folderId;
+
+  /// Fine-grained topic tags captured from the feed when favorited (used for
+  /// the 주제별 view). Empty for favorites added by link.
+  final List<String> topics;
   final DateTime createdAt;
 
   String get watchUrl => 'https://www.youtube.com/watch?v=$videoId';
@@ -33,6 +38,7 @@ class SavedVideo {
         channelTitle: v.channelTitle,
         thumbnailUrl: v.thumbnailUrl,
         publishedAt: v.publishedAt,
+        topics: v.topics,
         createdAt: DateTime.now(),
       );
 
@@ -55,6 +61,7 @@ class SavedVideo {
         thumbnailUrl: thumbnailUrl,
         publishedAt: publishedAt ?? createdAt,
         categoryId: '',
+        topics: topics,
       );
 
   factory SavedVideo.fromJson(Map<String, dynamic> j) => SavedVideo(
@@ -69,6 +76,7 @@ class SavedVideo {
         folderId: (j['folderId'] ?? j['folder_id']) == null
             ? null
             : '${j['folderId'] ?? j['folder_id']}',
+        topics: ((j['topics']) as List?)?.map((e) => '$e').toList() ?? const [],
         createdAt:
             DateTime.tryParse('${j['createdAt'] ?? j['created_at'] ?? ''}')
                     ?.toLocal() ??
@@ -84,6 +92,7 @@ class SavedVideo {
         'publishedAt': publishedAt?.toUtc().toIso8601String(),
         'pinned': pinned,
         'folderId': folderId,
+        'topics': topics,
         'createdAt': createdAt.toUtc().toIso8601String(),
       };
 
@@ -97,6 +106,7 @@ class SavedVideo {
         'published_at': publishedAt?.toUtc().toIso8601String(),
         'pinned': pinned,
         'folder_id': folderId,
+        'topics': topics,
         'created_at': createdAt.toUtc().toIso8601String(),
       };
 
@@ -104,16 +114,21 @@ class SavedVideo {
   // folderId can be cleared (move to 미분류) via copyWith.
   static const _keep = Object();
 
-  SavedVideo copyWith({bool? pinned, Object? folderId = _keep}) => SavedVideo(
+  SavedVideo copyWith({
+    bool? pinned,
+    Object? folderId = _keep,
+    List<String>? topics,
+  }) =>
+      SavedVideo(
         videoId: videoId,
         title: title,
         channelTitle: channelTitle,
         thumbnailUrl: thumbnailUrl,
         publishedAt: publishedAt,
         pinned: pinned ?? this.pinned,
-        folderId: identical(folderId, _keep)
-            ? this.folderId
-            : folderId as String?,
+        folderId:
+            identical(folderId, _keep) ? this.folderId : folderId as String?,
+        topics: topics ?? this.topics,
         createdAt: createdAt,
       );
 }
