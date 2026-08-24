@@ -112,6 +112,9 @@ async function resolveChannel(token: string, input: string): Promise<
         };
       }
     }
+    // An explicit channel id that didn't resolve must NOT fall back to a name
+    // search (searching the raw URL string returns an unrelated channel).
+    if (channelId) return null;
     if (!search) search = handle || username || raw;
   }
 
@@ -189,29 +192,38 @@ Deno.serve(async (req) => {
     }
     const data = await plRes.json();
     const items = data.items ?? [];
-    const ids = items
+    const ids: string[] = items
       .map((it: any) => it.snippet?.resourceId?.videoId)
       .filter(Boolean);
 
-    // Durations to detect Shorts.
-    const durById = new Map<string, number>();
+    // Fetch authoritative metadata for these ids. videos.list only returns
+    // videos that actually exist and are viewable, so deleted / private /
+    // region-blocked entries (which appear in the uploads playlist as
+    // "Deleted video" / "Private video" placeholders) are naturally dropped.
+    const metaById = new Map<string, any>();
     if (ids.length > 0) {
       const dRes = await ytGet(
         token,
-        `videos?part=contentDetails&maxResults=50&id=${ids.join(",")}`,
+        `videos?part=snippet,contentDetails,status&maxResults=50&id=${ids.join(",")}`,
       );
       if (dRes.ok) {
         for (const v of (await dRes.json()).items ?? []) {
-          durById.set(v.id, durationSeconds(v.contentDetails?.duration ?? "PT0S"));
+          metaById.set(v.id, v);
         }
       }
     }
 
+    // Preserve the uploads playlist order (newest first).
     for (const it of items) {
-      const s = it.snippet ?? {};
-      const vid = s.resourceId?.videoId;
+      const vid = it.snippet?.resourceId?.videoId;
       if (!vid) continue;
-      const secs = durById.get(vid) ?? 0;
+      const v = metaById.get(vid);
+      if (!v) continue; // deleted / private / unavailable → skip
+      const s = v.snippet ?? {};
+      // Skip scheduled premieres / live placeholders (no real content yet).
+      if (s.liveBroadcastContent && s.liveBroadcastContent !== "none") continue;
+      if (v.status && v.status.uploadStatus === "rejected") continue;
+      const secs = durationSeconds(v.contentDetails?.duration ?? "PT0S");
       if (secs > 0 && secs <= SHORTS_MAX_SECONDS) continue; // Short
       const th = s.thumbnails ?? {};
       videos.push({
@@ -228,6 +240,11 @@ Deno.serve(async (req) => {
     pageToken = data.nextPageToken ?? "";
     if (!pageToken) break;
   }
+
+  // Guarantee newest-first even if the uploads playlist order is off.
+  videos.sort((a: any, b: any) =>
+    String(b.publishedAt ?? "").localeCompare(String(a.publishedAt ?? ""))
+  );
 
   return json({
     channelId: ch.id,
