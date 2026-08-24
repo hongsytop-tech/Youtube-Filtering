@@ -425,16 +425,23 @@ class _FavoritesList extends ConsumerWidget {
     final selected = ref.watch(selectedFolderProvider);
     final folders = ref.watch(favoriteFoldersProvider);
 
-    // No "전체" view: 미분류(null selection or the sentinel) shows only unfiled
-    // videos; a folder selection shows just that folder. Filed videos are
-    // hidden until you open their folder.
+    // No "전체" view. 미분류(default) shows unfiled videos; a folder selection
+    // shows just that folder. Pinned videos are always surfaced at the top of
+    // the 미분류 view, even when they live inside a folder.
     final unfiledView = selected == null || selected == kUnfiledFolderId;
-    final inView = favorites.where((v) {
-      if (unfiledView) return v.folderId == null;
-      return v.folderId == selected;
-    }).toList();
+    final List<SavedVideo> pinned;
+    final List<SavedVideo> others;
+    if (unfiledView) {
+      pinned = favorites.where((e) => e.pinned).toList();
+      others =
+          favorites.where((e) => !e.pinned && e.folderId == null).toList();
+    } else {
+      final inFolder = favorites.where((e) => e.folderId == selected).toList();
+      pinned = inFolder.where((e) => e.pinned).toList();
+      others = inFolder.where((e) => !e.pinned).toList();
+    }
 
-    if (inView.isEmpty) {
+    if (pinned.isEmpty && others.isEmpty) {
       final msg = unfiledView
           ? '미분류 영상이 없습니다.\n'
               '피드에서 별(☆)을 누르거나, 위에서 제목·링크로 검색해 추가하세요.'
@@ -446,9 +453,6 @@ class _FavoritesList extends ConsumerWidget {
         ),
       );
     }
-
-    final pinned = inView.where((e) => e.pinned).toList();
-    final others = inView.where((e) => !e.pinned).toList();
 
     return ListView(
       padding: const EdgeInsets.only(bottom: 24),
