@@ -152,9 +152,9 @@ class _AppShellState extends ConsumerState<AppShell>
             label: '분석',
           ),
           NavigationDestination(
-            icon: Icon(Icons.video_library_outlined),
-            selectedIcon: Icon(Icons.video_library),
-            label: '채널',
+            icon: Icon(Icons.search_outlined),
+            selectedIcon: Icon(Icons.search),
+            label: '검색',
           ),
           NavigationDestination(
             icon: Icon(Icons.leaderboard_outlined),

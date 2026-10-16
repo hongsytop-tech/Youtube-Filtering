@@ -70,6 +70,7 @@ class ChannelFetchScreen extends ConsumerStatefulWidget {
 class _ChannelFetchScreenState extends ConsumerState<ChannelFetchScreen> {
   final _input = TextEditingController();
   int _count = 50;
+  String _source = 'search'; // search | channel
   String _mode = 'all'; // all | regular | shorts
   List<_ChannelVideo> _videos = [];
   final Set<String> _selected = {};
@@ -95,8 +96,8 @@ class _ChannelFetchScreenState extends ConsumerState<ChannelFetchScreen> {
   }
 
   Future<void> _fetch() async {
-    final channel = _input.text.trim();
-    if (channel.isEmpty) return;
+    final input = _input.text.trim();
+    if (input.isEmpty) return;
     if (!SupabaseService.isSignedIn) {
       setState(() => _error = '먼저 마이 탭에서 로그인/YouTube 연결을 해주세요.');
       return;
@@ -109,19 +110,25 @@ class _ChannelFetchScreenState extends ConsumerState<ChannelFetchScreen> {
       _selected.clear();
       _channelTitle = null;
     });
+    final isSearch = _source == 'search';
     try {
       final res = await SupabaseService.client.functions.invoke(
-        'channel-videos',
-        body: {'channel': channel, 'max': _count},
+        isSearch ? 'search-videos' : 'channel-videos',
+        body: isSearch
+            ? {'q': input, 'max': _count}
+            : {'channel': input, 'max': _count},
       );
       final data = res.data as Map?;
       final list = (data?['videos'] as List?) ?? const [];
       setState(() {
-        _channelTitle = data?['channelTitle'] as String?;
+        _channelTitle =
+            isSearch ? '검색: $input' : data?['channelTitle'] as String?;
         _videos = list
             .map((e) => _ChannelVideo.fromJson(Map<String, dynamic>.from(e)))
             .toList();
-        if (_videos.isEmpty) _error = '영상을 찾지 못했습니다.';
+        if (_videos.isEmpty) {
+          _error = (data?['detail'] as String?) ?? '영상을 찾지 못했습니다.';
+        }
       });
     } catch (e) {
       setState(() => _error = '가져오기 실패: $e');
@@ -175,22 +182,50 @@ class _ChannelFetchScreenState extends ConsumerState<ChannelFetchScreen> {
     final shown = _shown;
     final allSel = shown.isNotEmpty &&
         shown.every((v) => _selected.contains(v.videoId));
+    final isSearch = _source == 'search';
     return Scaffold(
-      appBar: AppBar(title: const Text('채널 영상 가져오기')),
+      appBar: AppBar(title: const Text('영상 검색·가져오기')),
       body: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
+            padding: const EdgeInsets.fromLTRB(12, 10, 12, 6),
+            child: SegmentedButton<String>(
+              style: const ButtonStyle(visualDensity: VisualDensity.compact),
+              segments: const [
+                ButtonSegment(
+                  value: 'search',
+                  icon: Icon(Icons.search, size: 18),
+                  label: Text('검색'),
+                ),
+                ButtonSegment(
+                  value: 'channel',
+                  icon: Icon(Icons.subscriptions_outlined, size: 18),
+                  label: Text('채널'),
+                ),
+              ],
+              selected: {_source},
+              onSelectionChanged: (s) => setState(() {
+                _source = s.first;
+                _videos = [];
+                _selected.clear();
+                _channelTitle = null;
+                _error = null;
+              }),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 4),
             child: TextField(
               controller: _input,
               autocorrect: false,
               enableSuggestions: false,
               textInputAction: TextInputAction.search,
               onSubmitted: (_) => _fetch(),
-              decoration: const InputDecoration(
-                hintText: '채널 URL / @핸들 / 채널ID',
+              decoration: InputDecoration(
+                hintText: isSearch ? '검색어 입력' : '채널 URL / @핸들 / 채널ID',
+                prefixIcon: Icon(isSearch ? Icons.search : Icons.link),
                 isDense: true,
-                border: OutlineInputBorder(),
+                border: const OutlineInputBorder(),
               ),
             ),
           ),
@@ -218,7 +253,7 @@ class _ChannelFetchScreenState extends ConsumerState<ChannelFetchScreen> {
                           width: 18,
                           height: 18,
                           child: CircularProgressIndicator(strokeWidth: 2))
-                      : const Text('가져오기'),
+                      : Text(isSearch ? '검색' : '가져오기'),
                 ),
               ],
             ),
@@ -288,31 +323,42 @@ class _ChannelFetchScreenState extends ConsumerState<ChannelFetchScreen> {
                   ),
                   title: Text(v.title,
                       maxLines: 2, overflow: TextOverflow.ellipsis),
-                  subtitle: Row(
+                  subtitle: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      if (v.isShort)
-                        Container(
-                          margin: const EdgeInsets.only(right: 6),
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 6, vertical: 1),
-                          decoration: BoxDecoration(
-                            color:
-                                Theme.of(context).colorScheme.tertiaryContainer,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Text('쇼츠',
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .labelSmall
-                                  ?.copyWith(
-                                    color: Theme.of(context)
-                                        .colorScheme
-                                        .onTertiaryContainer,
-                                  )),
-                        ),
-                      if (v.durationSeconds > 0)
-                        Text(_fmtDur(v.durationSeconds),
+                      if (isSearch && v.channelTitle.isNotEmpty)
+                        Text(v.channelTitle,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                             style: Theme.of(context).textTheme.labelSmall),
+                      Row(
+                        children: [
+                          if (v.isShort)
+                            Container(
+                              margin: const EdgeInsets.only(right: 6),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 6, vertical: 1),
+                              decoration: BoxDecoration(
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .tertiaryContainer,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text('쇼츠',
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .labelSmall
+                                      ?.copyWith(
+                                        color: Theme.of(context)
+                                            .colorScheme
+                                            .onTertiaryContainer,
+                                      )),
+                            ),
+                          if (v.durationSeconds > 0)
+                            Text(_fmtDur(v.durationSeconds),
+                                style: Theme.of(context).textTheme.labelSmall),
+                        ],
+                      ),
                     ],
                   ),
                   dense: true,
