@@ -72,6 +72,7 @@ class _ChannelFetchScreenState extends ConsumerState<ChannelFetchScreen> {
   int _count = 50;
   String _source = 'search'; // search | channel
   String _mode = 'all'; // all | regular | shorts
+  bool _captionsOnly = false; // search: only videos with captions
   List<_ChannelVideo> _videos = [];
   final Set<String> _selected = {};
   String? _channelTitle;
@@ -115,7 +116,7 @@ class _ChannelFetchScreenState extends ConsumerState<ChannelFetchScreen> {
       final res = await SupabaseService.client.functions.invoke(
         isSearch ? 'search-videos' : 'channel-videos',
         body: isSearch
-            ? {'q': input, 'max': _count}
+            ? {'q': input, 'max': _count, 'caption': _captionsOnly}
             : {'channel': input, 'max': _count},
       );
       final data = res.data as Map?;
@@ -229,6 +230,21 @@ class _ChannelFetchScreenState extends ConsumerState<ChannelFetchScreen> {
               ),
             ),
           ),
+          if (isSearch)
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(12, 0, 12, 0),
+                child: FilterChip(
+                  label: const Text('자막 있는 영상만'),
+                  avatar: const Icon(Icons.closed_caption_outlined, size: 18),
+                  selected: _captionsOnly,
+                  showCheckmark: false,
+                  visualDensity: VisualDensity.compact,
+                  onSelected: (v) => setState(() => _captionsOnly = v),
+                ),
+              ),
+            ),
           Padding(
             padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
             child: Row(

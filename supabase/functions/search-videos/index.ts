@@ -168,6 +168,10 @@ Deno.serve(async (req) => {
   const max = Math.max(1, Math.min(200, Number(body.max) || 50));
   const order = String(body.order ?? "relevance"); // relevance|date|viewCount|rating
   const regionCode = String(body.regionCode ?? "KR");
+  // Only videos that have captions (closed captions). Note: reflects YouTube's
+  // caption index (uploaded + auto-generated), so it's a best-effort filter.
+  const captionsOnly = body.caption === true ||
+    body.videoCaption === "closedCaption";
 
   // Build the API caller: prefer the key pool, else fall back to OAuth.
   let call: Caller;
@@ -207,6 +211,7 @@ Deno.serve(async (req) => {
         relevanceLanguage: "ko",
         maxResults: "50",
       });
+      if (captionsOnly) p.set("videoCaption", "closedCaption");
       if (pageToken) p.set("pageToken", pageToken);
       const data = await call(`search?${p}`);
       for (const it of data.items ?? []) {
